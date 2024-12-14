@@ -48,9 +48,7 @@ struct Directive {
 ### Process Flow
 
 1. Fillers initiate by calling `petition(Compact calldata compact, Mandate calldata mandate, Directive calldata directive)` and providing any msg.value required for the settlement and the dispensation to pay to process the cross-chain message.
-2. Tribunal performs validation:
-   - Derives and checks claim hash uniqueness in storage mapping
-   - Verifies mandate `expires` timestamp
+2. Tribunal verifies that the mandate has not expired by checking the mandate's `expires` timestamp
 3. Computation phase:
    - Derives `mandateHash` using an EIP712 typehash for the mandate, destination chainId, tribunal address, and mandate data
    - Derives `claimHash` using an EIP712 typehash for the compact with the mandate as a witness and the compact data including the `mandateHash`
