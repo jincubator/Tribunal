@@ -2,7 +2,7 @@
 
 **Tribunal** is a framework for processing cross-chain swap settlements against PGA (priority gas auction) blockchains. It ensures that tokens are transferred according to the mandate specified by the originating sponsor and enforces that a single party is able to perform the settlement in the event of a dispute.
 
-To settle a cross-chain swap, the filler submits a `petition` to the Tribunal contract. This consists of three core components:
+To settle a cross-chain swap, the filler submits a "petition" to the Tribunal contract. This consists of three core components:
 1. **Compact**: Defines the claim parameters and constraints specified by the sponsor.
 2. **Mandate**: Specifies settlement conditions and amount derivation parameters specified by the sponsor.
 3. **Directive**: Contains execution details provided by the filler including claimant and dispensation.
