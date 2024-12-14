@@ -27,8 +27,8 @@ struct Compact {
 #### Mandate Structure
 ```solidity
 struct Mandate {
-    address recipient;          // Recipient of settled tokens
-    uint256 expires;            // Mandate expiration timestamp
+    address recipient;           // Recipient of settled tokens
+    uint256 expires;             // Mandate expiration timestamp
     address token;               // Settlement token (address(0) for native)
     uint256 minimumAmount;       // Minimum settlement amount
     uint256 baselinePriorityFee; // Base fee threshold where scaling kicks in
@@ -52,7 +52,9 @@ struct Directive {
    - Derives and checks claim hash uniqueness in storage mapping
    - Verifies mandate `expires` timestamp
 3. Computation phase:
-   - Derives `mandateHash` using an EIP712 typehash, destination chainId, tribunal address, and mandate data
+   - Derives `mandateHash` using an EIP712 typehash for the mandate, destination chainId, tribunal address, and mandate data
+   - Derives `claimHash` using an EIP712 typehash for the compact with the mandate as a witness and the compact data including the `mandateHash`
+   - Ensures that the `claimHash` has not already been used and marks it as disposed
    - Calculates `settlementAmount` and `claimAmount` based on:
      - Compact `maxAmount`
      - Mandate parameters (`minimumAmount`, `baselinePriorityFee`, `scalingFactor`)
@@ -65,7 +67,7 @@ struct Directive {
 
 There are also a few view functions:
  - `quote(Compact calldata compact, Mandate calldata mandate, Directive calldata directive)` will suggest a dispensation amount (function of gas on claim chain + any additional "protocol overhead" if using push-based cross-chain messaging)
-  - `disposition(bytes32 claimHash)` will check if a given claim hash has already been disposed (used)
+ - `disposition(bytes32 claimHash)` will check if a given claim hash has already been disposed (used)
  - `getCompactWitnessDetails()` will return the Mandate witness typestring and that correlates token + amount arguments (so frontends can show context about the token and use decimal inputs)
  - `deriveMandateHash(Mandate calldata mandate)` will return the EIP712 typehash for the mandate
  - `deriveClaimHash(Compact calldata compact, bytes32 mandateHash)` will return the unique claim hash for a compact and mandate combination
