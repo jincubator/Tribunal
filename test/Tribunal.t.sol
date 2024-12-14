@@ -12,14 +12,17 @@ contract TribunalTest is Test {
     Tribunal public tribunal;
     MockERC20 public token;
     address sponsor;
-    uint256 sponsorPrivateKey;
-    bytes32 constant REFERENCE_MANDATE_TYPEHASH = keccak256(
-        "Mandate(uint256 chainId,address tribunal,uint256 seal,uint256 expires,address recipient,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor)"
-    );
+
+    // Mandate type string
+    string constant MANDATE_TYPESTRING =
+        "Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)";
+    bytes32 constant MANDATE_TYPEHASH = keccak256(bytes(MANDATE_TYPESTRING));
 
     // Compact type string with mandate witness
-    bytes32 constant COMPACT_TYPESTRING_WITH_MANDATE_WITNESS =
-        0x08926dd9bece79c857e46832f501c4f359f78a1aa86769fb829103507acc293b;
+    string constant COMPACT_TYPESTRING_WITH_MANDATE =
+        "Compact(address arbiter,address sponsor,uint256 nonce,uint256 expires,uint256 id,uint256 amount,Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)";
+    bytes32 constant COMPACT_TYPEHASH_WITH_MANDATE =
+        keccak256(bytes(COMPACT_TYPESTRING_WITH_MANDATE));
 
     // Make test contract payable to receive ETH refunds
     receive() external payable {}
@@ -27,7 +30,7 @@ contract TribunalTest is Test {
     function setUp() public {
         tribunal = new Tribunal();
         token = new MockERC20();
-        (sponsor, sponsorPrivateKey) = makeAddrAndKey("sponsor");
+        (sponsor,) = makeAddrAndKey("sponsor");
     }
 
     /**
@@ -39,31 +42,31 @@ contract TribunalTest is Test {
 
     /**
      * @notice Verify that mandate hash derivation follows EIP-712 structured data hashing
-     * @dev Tests mandate hash derivation with a seal value of 1
+     * @dev Tests mandate hash derivation with a salt value of 1
      */
     function test_DeriveMandateHash() public view {
         Tribunal.Mandate memory mandate = Tribunal.Mandate({
-            seal: bytes32(uint256(1)),
-            expires: 1703116800, // 2023-12-21 00:00:00 UTC
             recipient: address(0xCAFE),
+            expires: 1703116800, // 2023-12-21 00:00:00 UTC
             token: address(0xDEAD),
             minimumAmount: 1 ether,
             baselinePriorityFee: 100 wei,
-            scalingFactor: 1e18
+            scalingFactor: 1e18,
+            salt: bytes32(uint256(1))
         });
 
         bytes32 expectedHash = keccak256(
             abi.encode(
-                REFERENCE_MANDATE_TYPEHASH,
+                MANDATE_TYPEHASH,
                 block.chainid,
                 address(tribunal),
-                uint256(mandate.seal),
-                mandate.expires,
                 mandate.recipient,
+                mandate.expires,
                 mandate.token,
                 mandate.minimumAmount,
                 mandate.baselinePriorityFee,
-                mandate.scalingFactor
+                mandate.scalingFactor,
+                mandate.salt
             )
         );
 
@@ -71,32 +74,32 @@ contract TribunalTest is Test {
     }
 
     /**
-     * @notice Verify that mandate hash derivation works correctly with a different seal value
-     * @dev Tests mandate hash derivation with a seal value of 2 to ensure seal uniqueness is reflected
+     * @notice Verify that mandate hash derivation works correctly with a different salt value
+     * @dev Tests mandate hash derivation with a salt value of 2 to ensure salt uniqueness is reflected
      */
-    function test_DeriveMandateHash_DifferentSeal() public view {
+    function test_DeriveMandateHash_DifferentSalt() public view {
         Tribunal.Mandate memory mandate = Tribunal.Mandate({
-            seal: bytes32(uint256(2)),
-            expires: 1703116800, // 2023-12-21 00:00:00 UTC
             recipient: address(0xCAFE),
+            expires: 1703116800, // 2023-12-21 00:00:00 UTC
             token: address(0xDEAD),
             minimumAmount: 1 ether,
             baselinePriorityFee: 100 wei,
-            scalingFactor: 1e18
+            scalingFactor: 1e18,
+            salt: bytes32(uint256(2))
         });
 
         bytes32 expectedHash = keccak256(
             abi.encode(
-                REFERENCE_MANDATE_TYPEHASH,
+                MANDATE_TYPEHASH,
                 block.chainid,
                 address(tribunal),
-                uint256(mandate.seal),
-                mandate.expires,
                 mandate.recipient,
+                mandate.expires,
                 mandate.token,
                 mandate.minimumAmount,
                 mandate.baselinePriorityFee,
-                mandate.scalingFactor
+                mandate.scalingFactor,
+                mandate.salt
             )
         );
 
@@ -109,13 +112,13 @@ contract TribunalTest is Test {
      */
     function test_PetitionRevertsOnExpiredMandate() public {
         Tribunal.Mandate memory mandate = Tribunal.Mandate({
-            seal: bytes32(uint256(1)),
-            expires: 1703116800, // 2023-12-21 00:00:00 UTC
             recipient: address(0xCAFE),
+            expires: 1703116800, // 2023-12-21 00:00:00 UTC
             token: address(0xDEAD),
             minimumAmount: 1 ether,
             baselinePriorityFee: 100 wei,
-            scalingFactor: 1e18
+            scalingFactor: 1e18,
+            salt: bytes32(uint256(1))
         });
 
         Tribunal.Compact memory compact = Tribunal.Compact({
@@ -125,12 +128,8 @@ contract TribunalTest is Test {
             nonce: 0,
             expires: block.timestamp + 1 hours,
             id: 1,
-            maximumAmount: 1 ether,
-            sponsorSignature: "",
-            allocatorSignature: ""
+            maximumAmount: 1 ether
         });
-
-        compact.sponsorSignature = _generateSponsorSignature(compact, mandate, sponsorPrivateKey);
 
         Tribunal.Directive memory directive =
             Tribunal.Directive({claimant: address(this), dispensation: 0});
@@ -142,18 +141,18 @@ contract TribunalTest is Test {
     }
 
     /**
-     * @notice Verify that petition reverts when attempting to reuse a seal
-     * @dev Tests that a mandate's seal cannot be reused after it has been consumed
+     * @notice Verify that petition reverts when attempting to reuse a claim
+     * @dev Tests that a mandate's claim hash cannot be reused after it has been processed
      */
-    function test_PetitionRevertsOnReusedSeal() public {
+    function test_PetitionRevertsOnReusedClaim() public {
         Tribunal.Mandate memory mandate = Tribunal.Mandate({
-            seal: bytes32(uint256(1)),
-            expires: 1703116800, // 2023-12-21 00:00:00 UTC
             recipient: address(0xCAFE),
+            expires: 1703116800, // 2023-12-21 00:00:00 UTC
             token: address(0xDEAD),
             minimumAmount: 1 ether,
             baselinePriorityFee: 100 wei,
-            scalingFactor: 1e18
+            scalingFactor: 1e18,
+            salt: bytes32(uint256(1))
         });
 
         Tribunal.Compact memory compact = Tribunal.Compact({
@@ -163,37 +162,31 @@ contract TribunalTest is Test {
             nonce: 0,
             expires: block.timestamp + 1 hours,
             id: 1,
-            maximumAmount: 1 ether,
-            sponsorSignature: "",
-            allocatorSignature: ""
+            maximumAmount: 1 ether
         });
-
-        compact.sponsorSignature = _generateSponsorSignature(compact, mandate, sponsorPrivateKey);
 
         Tribunal.Directive memory directive =
             Tribunal.Directive({claimant: address(this), dispensation: 0});
 
         tribunal.petition(compact, mandate, directive);
 
-        vm.expectRevert(
-            abi.encodeWithSignature("InvalidNonce(address,uint256)", sponsor, uint256(mandate.seal))
-        );
+        vm.expectRevert(abi.encodeWithSignature("AlreadyClaimed()"));
         tribunal.petition(compact, mandate, directive);
     }
 
     /**
-     * @notice Verify that disposition correctly identifies used seals
-     * @dev Tests that disposition returns true for seals that have been consumed by petition
+     * @notice Verify that disposition correctly identifies used claims
+     * @dev Tests that disposition returns true for claims that have been processed by petition
      */
-    function test_DispositionReturnsTrueForUsedSeal() public {
+    function test_DispositionReturnsTrueForUsedClaim() public {
         Tribunal.Mandate memory mandate = Tribunal.Mandate({
-            seal: bytes32(uint256(1)),
-            expires: 1703116800, // 2023-12-21 00:00:00 UTC
             recipient: address(0xCAFE),
+            expires: 1703116800, // 2023-12-21 00:00:00 UTC
             token: address(0xDEAD),
             minimumAmount: 1 ether,
             baselinePriorityFee: 100 wei,
-            scalingFactor: 1e18
+            scalingFactor: 1e18,
+            salt: bytes32(uint256(1))
         });
 
         Tribunal.Compact memory compact = Tribunal.Compact({
@@ -203,19 +196,17 @@ contract TribunalTest is Test {
             nonce: 0,
             expires: block.timestamp + 1 hours,
             id: 1,
-            maximumAmount: 1 ether,
-            sponsorSignature: "",
-            allocatorSignature: ""
+            maximumAmount: 1 ether
         });
-
-        compact.sponsorSignature = _generateSponsorSignature(compact, mandate, sponsorPrivateKey);
 
         Tribunal.Directive memory directive =
             Tribunal.Directive({claimant: address(this), dispensation: 0});
 
-        tribunal.petition(compact, mandate, directive);
+        bytes32 claimHash = tribunal.deriveClaimHash(compact, tribunal.deriveMandateHash(mandate));
+        assertFalse(tribunal.disposition(claimHash));
 
-        assertTrue(tribunal.disposition(sponsor, mandate.seal));
+        tribunal.petition(compact, mandate, directive);
+        assertTrue(tribunal.disposition(claimHash));
     }
 
     /**
@@ -412,13 +403,13 @@ contract TribunalTest is Test {
     function test_PetitionSettlesNativeToken() public {
         // Create a mandate for native token settlement
         Tribunal.Mandate memory mandate = Tribunal.Mandate({
-            seal: bytes32(uint256(1)),
-            expires: uint256(block.timestamp + 1),
             recipient: address(0xBEEF),
+            expires: uint256(block.timestamp + 1),
             token: address(0),
             minimumAmount: 1 ether,
             baselinePriorityFee: 0,
-            scalingFactor: 0
+            scalingFactor: 0,
+            salt: bytes32(uint256(1))
         });
 
         // Create compact and directive
@@ -429,12 +420,8 @@ contract TribunalTest is Test {
             nonce: 0,
             expires: block.timestamp + 1 hours,
             id: 1,
-            maximumAmount: 1 ether,
-            sponsorSignature: "",
-            allocatorSignature: ""
+            maximumAmount: 1 ether
         });
-
-        compact.sponsorSignature = _generateSponsorSignature(compact, mandate, sponsorPrivateKey);
 
         Tribunal.Directive memory directive =
             Tribunal.Directive({claimant: address(this), dispensation: 0});
@@ -452,13 +439,13 @@ contract TribunalTest is Test {
     function test_PetitionSettlesERC20Token() public {
         // Create a mandate for ERC20 token settlement
         Tribunal.Mandate memory mandate = Tribunal.Mandate({
-            seal: bytes32(uint256(1)),
-            expires: uint256(block.timestamp + 1),
             recipient: address(0xBEEF),
+            expires: uint256(block.timestamp + 1),
             token: address(token),
             minimumAmount: 100e18,
             baselinePriorityFee: 0,
-            scalingFactor: 0
+            scalingFactor: 0,
+            salt: bytes32(uint256(1))
         });
 
         // Create compact and directive
@@ -469,12 +456,8 @@ contract TribunalTest is Test {
             nonce: 0,
             expires: block.timestamp + 1 hours,
             id: 1,
-            maximumAmount: 1 ether,
-            sponsorSignature: "",
-            allocatorSignature: ""
+            maximumAmount: 1 ether
         });
-
-        compact.sponsorSignature = _generateSponsorSignature(compact, mandate, sponsorPrivateKey);
 
         Tribunal.Directive memory directive =
             Tribunal.Directive({claimant: address(this), dispensation: 0});
@@ -495,70 +478,38 @@ contract TribunalTest is Test {
         assertEq(initialSenderBalance - token.balanceOf(address(this)), 100e18);
     }
 
-    function test_PetitionRevertsOnInvalidSignature() public {
-        // Generate a different private key (not the sponsor's)
-        uint256 wrongPK = 0xBEEF;
-
-        // Create mandate and compact
+    /**
+     * @notice Verify that claim hash derivation follows EIP-712 structured data hashing
+     * @dev Tests claim hash derivation with a mandate hash and compact data
+     */
+    function test_DeriveClaimHash() public view {
         Tribunal.Mandate memory mandate = Tribunal.Mandate({
-            seal: bytes32(uint256(1)),
-            expires: uint256(block.timestamp + 1),
-            recipient: address(0xBEEF),
-            token: address(0),
+            recipient: address(0xCAFE),
+            expires: 1703116800, // 2023-12-21 00:00:00 UTC
+            token: address(0xDEAD),
             minimumAmount: 1 ether,
-            baselinePriorityFee: 0,
-            scalingFactor: 0
+            baselinePriorityFee: 100 wei,
+            scalingFactor: 1e18,
+            salt: bytes32(uint256(1))
         });
 
         Tribunal.Compact memory compact = Tribunal.Compact({
-            arbiter: address(this),
-            sponsor: sponsor, // Note: using real sponsor address
-            nonce: 0,
-            expires: type(uint256).max,
-            id: uint256(0),
-            maximumAmount: 2 ether,
             chainId: block.chainid,
-            sponsorSignature: "",
-            allocatorSignature: ""
+            arbiter: address(this),
+            sponsor: sponsor,
+            nonce: 0,
+            expires: block.timestamp + 1 hours,
+            id: 1,
+            maximumAmount: 1 ether
         });
 
-        // Generate signature with wrong private key
-        compact.sponsorSignature = _generateSponsorSignature(compact, mandate, wrongPK);
-
-        Tribunal.Directive memory directive =
-            Tribunal.Directive({claimant: address(this), dispensation: 0});
-
-        // Expect revert when using wrong signature
-        vm.expectRevert(abi.encodeWithSignature("InvalidSponsorSignature()"));
-        tribunal.petition{value: 2 ether}(compact, mandate, directive);
-    }
-
-    // Helper function to generate valid sponsor signatures
-    function _generateSponsorSignature(
-        Tribunal.Compact memory compact,
-        Tribunal.Mandate memory mandate,
-        uint256 sponsorPK
-    ) internal view returns (bytes memory) {
         // First derive the mandate hash
-        bytes32 mandateHash = keccak256(
-            abi.encode(
-                REFERENCE_MANDATE_TYPEHASH,
-                block.chainid,
-                address(tribunal),
-                mandate.seal,
-                mandate.expires,
-                mandate.recipient,
-                mandate.token,
-                mandate.minimumAmount,
-                mandate.baselinePriorityFee,
-                mandate.scalingFactor
-            )
-        );
+        bytes32 mandateHash = tribunal.deriveMandateHash(mandate);
 
-        // Then derive the claim hash
-        bytes32 claimHash = keccak256(
+        // Calculate expected claim hash
+        bytes32 expectedHash = keccak256(
             abi.encode(
-                COMPACT_TYPESTRING_WITH_MANDATE_WITNESS,
+                COMPACT_TYPEHASH_WITH_MANDATE,
                 compact.arbiter,
                 compact.sponsor,
                 compact.nonce,
@@ -569,71 +520,91 @@ contract TribunalTest is Test {
             )
         );
 
-        // Derive the domain separator
-        bytes32 domainSeparator = toCompactDomainSeparator(compact.chainId);
-
-        // Derive the domain hash
-        bytes32 domainHash = withDomain(claimHash, domainSeparator);
-
-        // Generate the signature
-        (bytes32 r, bytes32 vs) = vm.signCompact(sponsorPK, domainHash);
-        return abi.encodePacked(r, vs);
+        // Verify the derived claim hash matches the expected hash
+        assertEq(tribunal.deriveClaimHash(compact, mandateHash), expectedHash);
     }
 
-    function toCompactDomainSeparator(uint256 claimChainId)
-        internal
-        pure
-        returns (bytes32 domainSeparator)
-    {
-        /// @dev `keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")`.
-        bytes32 _DOMAIN_TYPEHASH =
-            0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f;
+    /**
+     * @notice Verify that quote function returns expected placeholder value
+     */
+    function test_Quote() public {
+        Tribunal.Mandate memory mandate = Tribunal.Mandate({
+            recipient: address(0xCAFE),
+            expires: 1703116800,
+            token: address(0xDEAD),
+            minimumAmount: 1 ether,
+            baselinePriorityFee: 100 wei,
+            scalingFactor: 1e18,
+            salt: bytes32(uint256(1))
+        });
 
-        /// @dev `keccak256(bytes("The Compact"))`.
-        bytes32 _NAME_HASH = 0x5e6f7b4e1ac3d625bac418bc955510b3e054cb6cc23cc27885107f080180b292;
+        Tribunal.Compact memory compact = Tribunal.Compact({
+            chainId: block.chainid,
+            arbiter: address(this),
+            sponsor: sponsor,
+            nonce: 0,
+            expires: block.timestamp + 1 hours,
+            id: 1,
+            maximumAmount: 1 ether
+        });
 
-        /// @dev `keccak256("0")`.
-        bytes32 _VERSION_HASH = 0x044852b2a670ade5407e78fb2863c51de9fcb96542a07186fe3aeda6bb8a116d;
+        Tribunal.Directive memory directive =
+            Tribunal.Directive({claimant: address(this), dispensation: 0});
 
-        address THE_COMPACT = 0x00000000000018DF021Ff2467dF97ff846E09f48;
+        // Fund the test contract with some ETH for the placeholder calculation
+        vm.deal(address(this), 1000 ether);
 
-        assembly ("memory-safe") {
-            // Retrieve the free memory pointer.
-            let m := mload(0x40)
-
-            // Prepare domain data: EIP-712 typehash, name hash, version hash, notarizing chain ID, and verifying contract.
-            mstore(m, _DOMAIN_TYPEHASH)
-            mstore(add(m, 0x20), _NAME_HASH)
-            mstore(add(m, 0x40), _VERSION_HASH)
-            mstore(add(m, 0x60), claimChainId)
-            mstore(add(m, 0x80), THE_COMPACT)
-
-            // Derive the domain separator.
-            domainSeparator := keccak256(m, 0xa0)
-        }
+        uint256 expectedQuote = address(this).balance / 1000;
+        assertEq(tribunal.quote(compact, mandate, directive), expectedQuote);
     }
 
-    function withDomain(bytes32 claimHash, bytes32 domainSeparator)
-        internal
-        pure
-        returns (bytes32 domainHash)
-    {
-        assembly ("memory-safe") {
-            // Retrieve and cache the free memory pointer.
-            let m := mload(0x40)
+    /**
+     * @notice Verify that getCompactWitnessDetails returns correct values
+     */
+    function test_GetCompactWitnessDetails() public {
+        (string memory witnessTypeString, uint256 tokenArg, uint256 amountArg) =
+            tribunal.getCompactWitnessDetails();
 
-            // Prepare the 712 prefix.
-            mstore(0, 0x1901)
+        assertEq(
+            witnessTypeString,
+            "Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)"
+        );
+        assertEq(tokenArg, 2);
+        assertEq(amountArg, 3);
+    }
 
-            // Prepare the domain separator.
-            mstore(0x20, domainSeparator)
+    /**
+     * @notice Verify that petition reverts when gas price is below base fee
+     */
+    function test_PetitionRevertsOnInvalidGasPrice() public {
+        Tribunal.Mandate memory mandate = Tribunal.Mandate({
+            recipient: address(0xCAFE),
+            expires: 1703116800,
+            token: address(0xDEAD),
+            minimumAmount: 1 ether,
+            baselinePriorityFee: 100 wei,
+            scalingFactor: 1e18,
+            salt: bytes32(uint256(1))
+        });
 
-            // Prepare the message hash and compute the domain hash.
-            mstore(0x40, claimHash)
-            domainHash := keccak256(0x1e, 0x42)
+        Tribunal.Compact memory compact = Tribunal.Compact({
+            chainId: block.chainid,
+            arbiter: address(this),
+            sponsor: sponsor,
+            nonce: 0,
+            expires: block.timestamp + 1 hours,
+            id: 1,
+            maximumAmount: 1 ether
+        });
 
-            // Restore the free memory pointer.
-            mstore(0x40, m)
-        }
+        Tribunal.Directive memory directive =
+            Tribunal.Directive({claimant: address(this), dispensation: 0});
+
+        // Set block base fee higher than gas price
+        vm.fee(2 gwei);
+        vm.txGasPrice(1 gwei);
+
+        vm.expectRevert(abi.encodeWithSignature("InvalidGasPrice()"));
+        tribunal.petition(compact, mandate, directive);
     }
 }

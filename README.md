@@ -27,13 +27,13 @@ struct Compact {
 #### Mandate Structure
 ```solidity
 struct Mandate {
-    bytes32 seal;                // Replay protection parameter
-    uint256 expires;             // Mandate expiration timestamp
-    address recipient;           // Recipient of settled tokens
+    address recipient;          // Recipient of settled tokens
+    uint256 expires;            // Mandate expiration timestamp
     address token;               // Settlement token (address(0) for native)
-    uint256 minAmount;           // Minimum settlement amount
+    uint256 minimumAmount;       // Minimum settlement amount
     uint256 baselinePriorityFee; // Base fee threshold where scaling kicks in
     uint256 scalingFactor;       // Fee scaling multiplier (1e18 baseline)
+    bytes32 salt;                // Preimage resistance parameter
 }
 ```
 
@@ -49,13 +49,13 @@ struct Directive {
 
 1. Fillers initiate by calling `petition(Compact calldata compact, Mandate calldata mandate, Directive calldata directive)` and providing any msg.value required for the settlement and the dispensation to pay to process the cross-chain message.
 2. Tribunal performs validation:
-   - Checks `seal` uniqueness in storage mapping & sets it
+   - Derives and checks claim hash uniqueness in storage mapping
    - Verifies mandate `expires` timestamp
 3. Computation phase:
    - Derives `mandateHash` using an EIP712 typehash, destination chainId, tribunal address, and mandate data
    - Calculates `settlementAmount` and `claimAmount` based on:
      - Compact `maxAmount`
-     - Mandate parameters (`minAmount`, `baselinePriorityFee`, `scalingFactor`)
+     - Mandate parameters (`minimumAmount`, `baselinePriorityFee`, `scalingFactor`)
      - `tx.gasprice` and `block.basefee`
      - NOTE: `scalingFactor` will result in an increased `settlementAmount` if `> 1e18` or a decreased `claimAmount` if `< 1e18`
      - NOTE: `scalingFactor` is combined with `tx.gasprice - (block.basefee + baselinePriorityFee)` (or 0 if it would otherwise be negative) before being applied to the amount
@@ -65,10 +65,11 @@ struct Directive {
 
 There are also a few view functions:
  - `quote(Compact calldata compact, Mandate calldata mandate, Directive calldata directive)` will suggest a dispensation amount (function of gas on claim chain + any additional "protocol overhead" if using push-based cross-chain messaging)
+  - `disposition(bytes32 claimHash)` will check if a given claim hash has already been disposed (used)
  - `getCompactWitnessDetails()` will return the Mandate witness typestring and that correlates token + amount arguments (so frontends can show context about the token and use decimal inputs)
- - `disposition(address sponsor, bytes32 seal)` will check if a seal has been recorded yet for a given sponsor.
- - `getMandateHash(Compact calldata compact, Mandate calldata mandate)` will return the EIP712 typehash for the mandate, which must be provided as the witness to The Compact when processing the claim.
- - `getSettlementAmount(Compact calldata compact, Mandate calldata mandate)` will return the settlement amount based on the compact and mandate; the base fee and priority fee will be applied to the amount and so should be tuned in the call appropriately.
+ - `deriveMandateHash(Mandate calldata mandate)` will return the EIP712 typehash for the mandate
+ - `deriveClaimHash(Compact calldata compact, bytes32 mandateHash)` will return the unique claim hash for a compact and mandate combination
+ - `getSettlementAmount(Compact calldata compact, Mandate calldata mandate)` will return the settlement amount based on the compact and mandate; the base fee and priority fee will be applied to the amount and so should be tuned in the call appropriately
 
 #### Mandate EIP-712 Typehash
 This is what swappers will see as their witness data when signing a `Compact`:
@@ -76,23 +77,22 @@ This is what swappers will see as their witness data when signing a `Compact`:
 struct Mandate {
     uint256 chainId;
     address tribunal;
-    bytes32 seal;
-    uint256 expires;
     address recipient;
+    uint256 expires;
     address token;
-    uint256 minAmount;
+    uint256 minimumAmount;
     uint256 baselinePriorityFee;
     uint256 scalingFactor;
+    bytes32 salt;
 }
 ```
 
 ## Remaining Work
 - [ ] Create CI/CD pipeline
-- [ ] Implement bitpacking for seal
 - [ ] Implement directive processing with cross-chain messaging
 - [ ] Implement quote function for gas estimation
 - [ ] Implement getCompactWitnessDetails for frontend integration
-- [ ] Set up comprehensive testing suite
+- [ ] Set up comprehensive test suite
 - [ ] Add tests for fee-on-transfer tokens
 - [ ] Add tests for quote function
 - [ ] Add tests for witness details
@@ -104,7 +104,7 @@ struct Mandate {
 
 ### Core Functionality
 - [X] Petition submission
-- [X] Seal verification
+- [X] Claim hash derivation
 - [X] Expiration checking
 - [X] Hash derivation
 - [X] Amount calculations
@@ -116,7 +116,7 @@ struct Mandate {
 ### Edge Cases
 - [X] Zero amounts
 - [X] Native token handling
-- [X] Invalid seals
+- [X] Invalid claim hashes
 - [X] Expired mandates
 - [X] Gas price edge cases
 - [X] Scale factor boundaries
@@ -129,19 +129,11 @@ struct Mandate {
 - [X] Access control
 - [X] Input validation
 - [X] Integer overflow/underflow
-- [X] ECDSA Sponsor signature verification
-- [ ] EIP-1271 Sponsor signature verification
 - [ ] Cross-chain message security
 - [ ] Gas estimation attack vectors
 
 ### Reentrancy
 Reentrancy protection is not needed in the current design as it follows the checks-effects-interactions pattern and never holds tokens. The contract consumes nonces before any external calls and uses a pull pattern for token transfers.
-
-### Sponsor Signature Verification
-To prevent griefing attacks where a malicious filler could consume a sponsor's seal without a valid compact:
-- Each compact must be signed by the sponsor using EIP-712
-- The signature is verified before consuming the seal
-- Note: EIP-1271 contract sponsors are not currently supported and will need a different griefing prevention mechanism
 
 ### Fee-on-Transfer Token Handling
 Swappers must handle fee-on-transfer tokens carefully, as settlement will result in fewer tokens being received by the recipient than the specified settlement amount. When providing settlement amounts for such tokens:
