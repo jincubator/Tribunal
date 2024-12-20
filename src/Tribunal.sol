@@ -318,7 +318,7 @@ contract Tribunal {
      * @param claimAmount The amount to claim
      */
     function _processDirective(
-        Compact memory compact,
+        Compact calldata compact,
         bytes32 mandateHash,
         Directive memory directive,
         uint256 claimAmount
@@ -336,7 +336,7 @@ contract Tribunal {
      * @return dispensation The quoted dispensation amount
      */
     function _quoteDirective(
-        Compact memory compact,
+        Compact calldata compact,
         bytes32 mandateHash,
         address claimant,
         uint256 claimAmount
