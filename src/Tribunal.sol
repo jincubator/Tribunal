@@ -33,6 +33,8 @@ contract Tribunal {
         uint256 expires; // Claim expiration timestamp
         uint256 id; // Claimed ERC6909 token ID
         uint256 maximumAmount; // Maximum claimable tokens
+        bytes sponsorSignature; // Authorization from the sponsor
+        bytes allocatorSignature; // Authorization from the allocator
     }
 
     struct Mandate {

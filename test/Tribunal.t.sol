@@ -128,7 +128,9 @@ contract TribunalTest is Test {
             nonce: 0,
             expires: block.timestamp + 1 hours,
             id: 1,
-            maximumAmount: 1 ether
+            maximumAmount: 1 ether,
+            sponsorSignature: new bytes(0),
+            allocatorSignature: new bytes(0)
         });
 
         Tribunal.Directive memory directive =
@@ -162,7 +164,9 @@ contract TribunalTest is Test {
             nonce: 0,
             expires: block.timestamp + 1 hours,
             id: 1,
-            maximumAmount: 1 ether
+            maximumAmount: 1 ether,
+            sponsorSignature: new bytes(0),
+            allocatorSignature: new bytes(0)
         });
 
         Tribunal.Directive memory directive =
@@ -196,7 +200,9 @@ contract TribunalTest is Test {
             nonce: 0,
             expires: block.timestamp + 1 hours,
             id: 1,
-            maximumAmount: 1 ether
+            maximumAmount: 1 ether,
+            sponsorSignature: new bytes(0),
+            allocatorSignature: new bytes(0)
         });
 
         Tribunal.Directive memory directive =
@@ -420,7 +426,9 @@ contract TribunalTest is Test {
             nonce: 0,
             expires: block.timestamp + 1 hours,
             id: 1,
-            maximumAmount: 1 ether
+            maximumAmount: 1 ether,
+            sponsorSignature: new bytes(0),
+            allocatorSignature: new bytes(0)
         });
 
         Tribunal.Directive memory directive =
@@ -456,7 +464,9 @@ contract TribunalTest is Test {
             nonce: 0,
             expires: block.timestamp + 1 hours,
             id: 1,
-            maximumAmount: 1 ether
+            maximumAmount: 1 ether,
+            sponsorSignature: new bytes(0),
+            allocatorSignature: new bytes(0)
         });
 
         Tribunal.Directive memory directive =
@@ -500,7 +510,9 @@ contract TribunalTest is Test {
             nonce: 0,
             expires: block.timestamp + 1 hours,
             id: 1,
-            maximumAmount: 1 ether
+            maximumAmount: 1 ether,
+            sponsorSignature: new bytes(0),
+            allocatorSignature: new bytes(0)
         });
 
         // First derive the mandate hash
@@ -545,7 +557,9 @@ contract TribunalTest is Test {
             nonce: 0,
             expires: block.timestamp + 1 hours,
             id: 1,
-            maximumAmount: 1 ether
+            maximumAmount: 1 ether,
+            sponsorSignature: new bytes(0),
+            allocatorSignature: new bytes(0)
         });
 
         address claimant = address(this);
@@ -593,7 +607,9 @@ contract TribunalTest is Test {
             nonce: 0,
             expires: block.timestamp + 1 hours,
             id: 1,
-            maximumAmount: 1 ether
+            maximumAmount: 1 ether,
+            sponsorSignature: new bytes(0),
+            allocatorSignature: new bytes(0)
         });
 
         Tribunal.Directive memory directive =
