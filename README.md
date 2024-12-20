@@ -7,6 +7,8 @@ To settle a cross-chain swap, the filler submits a "petition" to the Tribunal co
 2. **Mandate**: Specifies settlement conditions and amount derivation parameters specified by the sponsor.
 3. **Directive**: Contains execution details provided by the filler including claimant and dispensation.
 
+> Note for cross-chain message protocols integrating with Tribunal: inherit the `Tribunal` contract and override the `_processDirective` and `_quoteDirective` functions to implement the relevant directive processing logic for passing a message to the arbiter on the claim chain (or ensure that the necessary state is updated to allow for the arbiter to "pull" the message themselves).
+
 ### Core Components
 
 #### Compact Structure
