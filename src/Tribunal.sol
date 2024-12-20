@@ -141,19 +141,36 @@ contract Tribunal {
      * @notice Get a quote for the required dispensation amount
      * @param compact The claim parameters and constraints
      * @param mandate The settlement conditions and amount derivation parameters
-     * @param directive The execution details
-     * @return The suggested dispensation amount
+     * @param claimant The address of the claimant
+     * @return dispensation The suggested dispensation amount
      */
-    function quote(Compact calldata compact, Mandate calldata mandate, Directive calldata directive)
+    function quote(Compact calldata compact, Mandate calldata mandate, address claimant)
         external
         view
-        returns (uint256)
+        returns (uint256 dispensation)
     {
-        compact;
-        mandate;
-        directive;
-        // TODO: Implement quote logic
-        return msg.sender.balance / 1000;
+        // Ensure that the mandate has not expired.
+        mandate.expires.later();
+
+        // Derive mandate hash.
+        bytes32 mandateHash = deriveMandateHash(mandate);
+
+        // Derive and check claim hash
+        bytes32 claimHash = deriveClaimHash(compact, mandateHash);
+        if (_dispositions[claimHash]) {
+            revert AlreadyClaimed();
+        }
+
+        // Derive settlement and claim amounts.
+        (, uint256 claimAmount) = deriveAmounts(
+            compact.maximumAmount,
+            mandate.minimumAmount,
+            mandate.baselinePriorityFee,
+            mandate.scalingFactor
+        );
+
+        // Process the quote.
+        dispensation = _quoteDirective(compact, mandateHash, claimant, claimAmount);
     }
 
     /**
@@ -169,8 +186,8 @@ contract Tribunal {
     {
         return (
             "Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)",
-            2,
-            3
+            4,
+            5
         );
     }
 
@@ -303,7 +320,31 @@ contract Tribunal {
         bytes32 mandateHash,
         Directive memory directive,
         uint256 claimAmount
-    ) internal {
-        // TODO: Implement directive processing
+    ) internal virtual {
+        // NOTE: Override & implement directive processing
+    }
+
+    /**
+     * @dev Derive the quote for the dispensation required for
+     * the directive for token claims
+     * @param compact The claim parameters
+     * @param mandateHash The derived mandate hash
+     * @param claimant The address of the claimant
+     * @param claimAmount The amount to claim
+     * @return dispensation The quoted dispensation amount
+     */
+    function _quoteDirective(
+        Compact memory compact,
+        bytes32 mandateHash,
+        address claimant,
+        uint256 claimAmount
+    ) internal view virtual returns (uint256 dispensation) {
+        compact;
+        mandateHash;
+        claimant;
+        claimAmount;
+
+        // NOTE: Override & implement quote logic
+        return msg.sender.balance / 1000;
     }
 }

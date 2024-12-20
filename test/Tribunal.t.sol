@@ -548,20 +548,19 @@ contract TribunalTest is Test {
             maximumAmount: 1 ether
         });
 
-        Tribunal.Directive memory directive =
-            Tribunal.Directive({claimant: address(this), dispensation: 0});
+        address claimant = address(this);
 
         // Fund the test contract with some ETH for the placeholder calculation
         vm.deal(address(this), 1000 ether);
 
         uint256 expectedQuote = address(this).balance / 1000;
-        assertEq(tribunal.quote(compact, mandate, directive), expectedQuote);
+        assertEq(tribunal.quote(compact, mandate, claimant), expectedQuote);
     }
 
     /**
      * @notice Verify that getCompactWitnessDetails returns correct values
      */
-    function test_GetCompactWitnessDetails() public {
+    function test_GetCompactWitnessDetails() public view {
         (string memory witnessTypeString, uint256 tokenArg, uint256 amountArg) =
             tribunal.getCompactWitnessDetails();
 
@@ -569,8 +568,8 @@ contract TribunalTest is Test {
             witnessTypeString,
             "Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)"
         );
-        assertEq(tokenArg, 2);
-        assertEq(amountArg, 3);
+        assertEq(tokenArg, 4);
+        assertEq(amountArg, 5);
     }
 
     /**
