@@ -32,7 +32,7 @@ contract Tribunal {
         uint256 expires; // The time at which the claim expires.
         uint256 id; // The token ID of the ERC6909 token to allocate.
         uint256 amount; // The amount of ERC6909 tokens to allocate.
-        // Optional witness may follow.
+            // Optional witness may follow.
     }
 
     struct Claim {
@@ -95,11 +95,7 @@ contract Tribunal {
      * @return settlementAmount The amount of tokens to be settled
      * @return claimAmount The amount of tokens to be claimed
      */
-    function petition(
-        Claim calldata claim,
-        Mandate calldata mandate,
-        Directive calldata directive
-    )
+    function petition(Claim calldata claim, Mandate calldata mandate, Directive calldata directive)
         external
         payable
         returns (bytes32 mandateHash, uint256 settlementAmount, uint256 claimAmount)
