@@ -121,14 +121,16 @@ contract TribunalTest is Test {
             salt: bytes32(uint256(1))
         });
 
-        Tribunal.Compact memory compact = Tribunal.Compact({
+        Tribunal.Claim memory claim = Tribunal.Claim({
             chainId: block.chainid,
-            arbiter: address(this),
-            sponsor: sponsor,
-            nonce: 0,
-            expires: block.timestamp + 1 hours,
-            id: 1,
-            maximumAmount: 1 ether,
+            compact: Tribunal.Compact({
+                arbiter: address(this),
+                sponsor: sponsor,
+                nonce: 0,
+                expires: block.timestamp + 1 hours,
+                id: 1,
+                amount: 1 ether
+            }),
             sponsorSignature: new bytes(0),
             allocatorSignature: new bytes(0)
         });
@@ -139,7 +141,7 @@ contract TribunalTest is Test {
         vm.warp(mandate.expires + 1);
 
         vm.expectRevert(abi.encodeWithSignature("Expired(uint256)", mandate.expires));
-        tribunal.petition(compact, mandate, directive);
+        tribunal.petition(claim, mandate, directive);
     }
 
     /**
@@ -157,14 +159,16 @@ contract TribunalTest is Test {
             salt: bytes32(uint256(1))
         });
 
-        Tribunal.Compact memory compact = Tribunal.Compact({
+        Tribunal.Claim memory claim = Tribunal.Claim({
             chainId: block.chainid,
-            arbiter: address(this),
-            sponsor: sponsor,
-            nonce: 0,
-            expires: block.timestamp + 1 hours,
-            id: 1,
-            maximumAmount: 1 ether,
+            compact: Tribunal.Compact({
+                arbiter: address(this),
+                sponsor: sponsor,
+                nonce: 0,
+                expires: block.timestamp + 1 hours,
+                id: 1,
+                amount: 1 ether
+            }),
             sponsorSignature: new bytes(0),
             allocatorSignature: new bytes(0)
         });
@@ -172,10 +176,10 @@ contract TribunalTest is Test {
         Tribunal.Directive memory directive =
             Tribunal.Directive({claimant: address(this), dispensation: 0});
 
-        tribunal.petition(compact, mandate, directive);
+        tribunal.petition(claim, mandate, directive);
 
         vm.expectRevert(abi.encodeWithSignature("AlreadyClaimed()"));
-        tribunal.petition(compact, mandate, directive);
+        tribunal.petition(claim, mandate, directive);
     }
 
     /**
@@ -193,14 +197,16 @@ contract TribunalTest is Test {
             salt: bytes32(uint256(1))
         });
 
-        Tribunal.Compact memory compact = Tribunal.Compact({
+        Tribunal.Claim memory claim = Tribunal.Claim({
             chainId: block.chainid,
-            arbiter: address(this),
-            sponsor: sponsor,
-            nonce: 0,
-            expires: block.timestamp + 1 hours,
-            id: 1,
-            maximumAmount: 1 ether,
+            compact: Tribunal.Compact({
+                arbiter: address(this),
+                sponsor: sponsor,
+                nonce: 0,
+                expires: block.timestamp + 1 hours,
+                id: 1,
+                amount: 1 ether
+            }),
             sponsorSignature: new bytes(0),
             allocatorSignature: new bytes(0)
         });
@@ -208,10 +214,10 @@ contract TribunalTest is Test {
         Tribunal.Directive memory directive =
             Tribunal.Directive({claimant: address(this), dispensation: 0});
 
-        bytes32 claimHash = tribunal.deriveClaimHash(compact, tribunal.deriveMandateHash(mandate));
+        bytes32 claimHash = tribunal.deriveClaimHash(claim, tribunal.deriveMandateHash(mandate));
         assertFalse(tribunal.disposition(claimHash));
 
-        tribunal.petition(compact, mandate, directive);
+        tribunal.petition(claim, mandate, directive);
         assertTrue(tribunal.disposition(claimHash));
     }
 
@@ -419,14 +425,16 @@ contract TribunalTest is Test {
         });
 
         // Create compact and directive
-        Tribunal.Compact memory compact = Tribunal.Compact({
+        Tribunal.Claim memory claim = Tribunal.Claim({
             chainId: block.chainid,
-            arbiter: address(this),
-            sponsor: sponsor,
-            nonce: 0,
-            expires: block.timestamp + 1 hours,
-            id: 1,
-            maximumAmount: 1 ether,
+            compact: Tribunal.Compact({
+                arbiter: address(this),
+                sponsor: sponsor,
+                nonce: 0,
+                expires: block.timestamp + 1 hours,
+                id: 1,
+                amount: 1 ether
+            }),
             sponsorSignature: new bytes(0),
             allocatorSignature: new bytes(0)
         });
@@ -436,7 +444,7 @@ contract TribunalTest is Test {
 
         // Send ETH with the petition
         uint256 initialSenderBalance = address(this).balance;
-        tribunal.petition{value: 2 ether}(compact, mandate, directive);
+        tribunal.petition{value: 2 ether}(claim, mandate, directive);
 
         // Check that recipient received exactly 1 ETH
         assertEq(address(0xBEEF).balance, 1 ether);
@@ -457,14 +465,16 @@ contract TribunalTest is Test {
         });
 
         // Create compact and directive
-        Tribunal.Compact memory compact = Tribunal.Compact({
+        Tribunal.Claim memory claim = Tribunal.Claim({
             chainId: block.chainid,
-            arbiter: address(this),
-            sponsor: sponsor,
-            nonce: 0,
-            expires: block.timestamp + 1 hours,
-            id: 1,
-            maximumAmount: 1 ether,
+            compact: Tribunal.Compact({
+                arbiter: address(this),
+                sponsor: sponsor,
+                nonce: 0,
+                expires: block.timestamp + 1 hours,
+                id: 1,
+                amount: 1 ether
+            }),
             sponsorSignature: new bytes(0),
             allocatorSignature: new bytes(0)
         });
@@ -480,7 +490,7 @@ contract TribunalTest is Test {
         uint256 initialSenderBalance = token.balanceOf(address(this));
 
         // Execute petition
-        tribunal.petition(compact, mandate, directive);
+        tribunal.petition(claim, mandate, directive);
 
         // Check that recipient received exactly 100 tokens
         assertEq(token.balanceOf(address(0xBEEF)) - initialRecipientBalance, 100e18);
@@ -503,14 +513,16 @@ contract TribunalTest is Test {
             salt: bytes32(uint256(1))
         });
 
-        Tribunal.Compact memory compact = Tribunal.Compact({
+        Tribunal.Claim memory claim = Tribunal.Claim({
             chainId: block.chainid,
-            arbiter: address(this),
-            sponsor: sponsor,
-            nonce: 0,
-            expires: block.timestamp + 1 hours,
-            id: 1,
-            maximumAmount: 1 ether,
+            compact: Tribunal.Compact({
+                arbiter: address(this),
+                sponsor: sponsor,
+                nonce: 0,
+                expires: block.timestamp + 1 hours,
+                id: 1,
+                amount: 1 ether
+            }),
             sponsorSignature: new bytes(0),
             allocatorSignature: new bytes(0)
         });
@@ -522,18 +534,18 @@ contract TribunalTest is Test {
         bytes32 expectedHash = keccak256(
             abi.encode(
                 COMPACT_TYPEHASH_WITH_MANDATE,
-                compact.arbiter,
-                compact.sponsor,
-                compact.nonce,
-                compact.expires,
-                compact.id,
-                compact.maximumAmount,
+                claim.compact.arbiter,
+                claim.compact.sponsor,
+                claim.compact.nonce,
+                claim.compact.expires,
+                claim.compact.id,
+                claim.compact.amount,
                 mandateHash
             )
         );
 
         // Verify the derived claim hash matches the expected hash
-        assertEq(tribunal.deriveClaimHash(compact, mandateHash), expectedHash);
+        assertEq(tribunal.deriveClaimHash(claim, mandateHash), expectedHash);
     }
 
     /**
@@ -550,14 +562,16 @@ contract TribunalTest is Test {
             salt: bytes32(uint256(1))
         });
 
-        Tribunal.Compact memory compact = Tribunal.Compact({
+        Tribunal.Claim memory claim = Tribunal.Claim({
             chainId: block.chainid,
-            arbiter: address(this),
-            sponsor: sponsor,
-            nonce: 0,
-            expires: block.timestamp + 1 hours,
-            id: 1,
-            maximumAmount: 1 ether,
+            compact: Tribunal.Compact({
+                arbiter: address(this),
+                sponsor: sponsor,
+                nonce: 0,
+                expires: block.timestamp + 1 hours,
+                id: 1,
+                amount: 1 ether
+            }),
             sponsorSignature: new bytes(0),
             allocatorSignature: new bytes(0)
         });
@@ -568,7 +582,7 @@ contract TribunalTest is Test {
         vm.deal(address(this), 1000 ether);
 
         uint256 expectedQuote = address(this).balance / 1000;
-        assertEq(tribunal.quote(compact, mandate, claimant), expectedQuote);
+        assertEq(tribunal.quote(claim, mandate, claimant), expectedQuote);
     }
 
     /**
@@ -600,14 +614,16 @@ contract TribunalTest is Test {
             salt: bytes32(uint256(1))
         });
 
-        Tribunal.Compact memory compact = Tribunal.Compact({
+        Tribunal.Claim memory claim = Tribunal.Claim({
             chainId: block.chainid,
-            arbiter: address(this),
-            sponsor: sponsor,
-            nonce: 0,
-            expires: block.timestamp + 1 hours,
-            id: 1,
-            maximumAmount: 1 ether,
+            compact: Tribunal.Compact({
+                arbiter: address(this),
+                sponsor: sponsor,
+                nonce: 0,
+                expires: block.timestamp + 1 hours,
+                id: 1,
+                amount: 1 ether
+            }),
             sponsorSignature: new bytes(0),
             allocatorSignature: new bytes(0)
         });
@@ -620,6 +636,6 @@ contract TribunalTest is Test {
         vm.txGasPrice(1 gwei);
 
         vm.expectRevert(abi.encodeWithSignature("InvalidGasPrice()"));
-        tribunal.petition(compact, mandate, directive);
+        tribunal.petition(claim, mandate, directive);
     }
 }
