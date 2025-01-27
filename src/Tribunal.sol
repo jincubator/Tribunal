@@ -43,6 +43,8 @@ contract Tribunal {
     }
 
     struct Mandate {
+        // uint256 chainId (implicit arg, included in EIP712 payload)
+        // address tribunal (implicit arg, included in EIP712 payload)
         address recipient; // Recipient of settled tokens
         uint256 expires; // Mandate expiration timestamp
         address token; // Settlement token (address(0) for native)
