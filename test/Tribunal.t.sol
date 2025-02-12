@@ -107,10 +107,10 @@ contract TribunalTest is Test {
     }
 
     /**
-     * @notice Verify that petition reverts when attempting to use an expired mandate
-     * @dev Sets up a mandate that has already expired and ensures the petition function reverts
+     * @notice Verify that fill reverts when attempting to use an expired mandate
+     * @dev Sets up a mandate that has already expired and ensures the fill function reverts
      */
-    function test_PetitionRevertsOnExpiredMandate() public {
+    function test_FillRevertsOnExpiredMandate() public {
         Tribunal.Mandate memory mandate = Tribunal.Mandate({
             recipient: address(0xCAFE),
             expires: 1703116800, // 2023-12-21 00:00:00 UTC
@@ -134,21 +134,18 @@ contract TribunalTest is Test {
             sponsorSignature: new bytes(0),
             allocatorSignature: new bytes(0)
         });
-
-        Tribunal.Directive memory directive =
-            Tribunal.Directive({claimant: address(this), dispensation: 0});
 
         vm.warp(mandate.expires + 1);
 
         vm.expectRevert(abi.encodeWithSignature("Expired(uint256)", mandate.expires));
-        tribunal.petition(claim, mandate, directive);
+        tribunal.fill(claim, mandate, address(this));
     }
 
     /**
-     * @notice Verify that petition reverts when attempting to reuse a claim
+     * @notice Verify that fill reverts when attempting to reuse a claim
      * @dev Tests that a mandate's claim hash cannot be reused after it has been processed
      */
-    function test_PetitionRevertsOnReusedClaim() public {
+    function test_FillRevertsOnReusedClaim() public {
         Tribunal.Mandate memory mandate = Tribunal.Mandate({
             recipient: address(0xCAFE),
             expires: 1703116800, // 2023-12-21 00:00:00 UTC
@@ -173,20 +170,17 @@ contract TribunalTest is Test {
             allocatorSignature: new bytes(0)
         });
 
-        Tribunal.Directive memory directive =
-            Tribunal.Directive({claimant: address(this), dispensation: 0});
-
-        tribunal.petition(claim, mandate, directive);
+        tribunal.fill(claim, mandate, address(this));
 
         vm.expectRevert(abi.encodeWithSignature("AlreadyClaimed()"));
-        tribunal.petition(claim, mandate, directive);
+        tribunal.fill(claim, mandate, address(this));
     }
 
     /**
-     * @notice Verify that disposition correctly identifies used claims
-     * @dev Tests that disposition returns true for claims that have been processed by petition
+     * @notice Verify that filled correctly identifies used claims
+     * @dev Tests that filled returns true for claims that have been processed by fill
      */
-    function test_DispositionReturnsTrueForUsedClaim() public {
+    function test_FilledReturnsTrueForUsedClaim() public {
         Tribunal.Mandate memory mandate = Tribunal.Mandate({
             recipient: address(0xCAFE),
             expires: 1703116800, // 2023-12-21 00:00:00 UTC
@@ -211,14 +205,11 @@ contract TribunalTest is Test {
             allocatorSignature: new bytes(0)
         });
 
-        Tribunal.Directive memory directive =
-            Tribunal.Directive({claimant: address(this), dispensation: 0});
-
         bytes32 claimHash = tribunal.deriveClaimHash(claim, tribunal.deriveMandateHash(mandate));
-        assertFalse(tribunal.disposition(claimHash));
+        assertFalse(tribunal.filled(claimHash));
 
-        tribunal.petition(claim, mandate, directive);
-        assertTrue(tribunal.disposition(claimHash));
+        tribunal.fill(claim, mandate, address(this));
+        assertTrue(tribunal.filled(claimHash));
     }
 
     /**
@@ -412,7 +403,7 @@ contract TribunalTest is Test {
         assertEq(claimAmount, expectedClaimAmount, "Claim amount should decrease by 50%");
     }
 
-    function test_PetitionSettlesNativeToken() public {
+    function test_FillSettlesNativeToken() public {
         // Create a mandate for native token settlement
         Tribunal.Mandate memory mandate = Tribunal.Mandate({
             recipient: address(0xBEEF),
@@ -424,7 +415,7 @@ contract TribunalTest is Test {
             salt: bytes32(uint256(1))
         });
 
-        // Create compact and directive
+        // Create compact
         Tribunal.Claim memory claim = Tribunal.Claim({
             chainId: block.chainid,
             compact: Tribunal.Compact({
@@ -439,12 +430,9 @@ contract TribunalTest is Test {
             allocatorSignature: new bytes(0)
         });
 
-        Tribunal.Directive memory directive =
-            Tribunal.Directive({claimant: address(this), dispensation: 0});
-
-        // Send ETH with the petition
+        // Send ETH with the fill
         uint256 initialSenderBalance = address(this).balance;
-        tribunal.petition{value: 2 ether}(claim, mandate, directive);
+        tribunal.fill{value: 2 ether}(claim, mandate, address(this));
 
         // Check that recipient received exactly 1 ETH
         assertEq(address(0xBEEF).balance, 1 ether);
@@ -452,7 +440,7 @@ contract TribunalTest is Test {
         assertEq(initialSenderBalance - address(this).balance, 1 ether);
     }
 
-    function test_PetitionSettlesERC20Token() public {
+    function test_FillSettlesERC20Token() public {
         // Create a mandate for ERC20 token settlement
         Tribunal.Mandate memory mandate = Tribunal.Mandate({
             recipient: address(0xBEEF),
@@ -464,7 +452,7 @@ contract TribunalTest is Test {
             salt: bytes32(uint256(1))
         });
 
-        // Create compact and directive
+        // Create compact
         Tribunal.Claim memory claim = Tribunal.Claim({
             chainId: block.chainid,
             compact: Tribunal.Compact({
@@ -479,9 +467,6 @@ contract TribunalTest is Test {
             allocatorSignature: new bytes(0)
         });
 
-        Tribunal.Directive memory directive =
-            Tribunal.Directive({claimant: address(this), dispensation: 0});
-
         // Approve tokens for settlement
         token.approve(address(tribunal), type(uint256).max);
 
@@ -489,8 +474,8 @@ contract TribunalTest is Test {
         uint256 initialRecipientBalance = token.balanceOf(address(0xBEEF));
         uint256 initialSenderBalance = token.balanceOf(address(this));
 
-        // Execute petition
-        tribunal.petition(claim, mandate, directive);
+        // Execute fill
+        tribunal.fill(claim, mandate, address(this));
 
         // Check that recipient received exactly 100 tokens
         assertEq(token.balanceOf(address(0xBEEF)) - initialRecipientBalance, 100e18);
@@ -601,9 +586,9 @@ contract TribunalTest is Test {
     }
 
     /**
-     * @notice Verify that petition reverts when gas price is below base fee
+     * @notice Verify that fill reverts when gas price is below base fee
      */
-    function test_PetitionRevertsOnInvalidGasPrice() public {
+    function test_FillRevertsOnInvalidGasPrice() public {
         Tribunal.Mandate memory mandate = Tribunal.Mandate({
             recipient: address(0xCAFE),
             expires: 1703116800,
@@ -628,14 +613,11 @@ contract TribunalTest is Test {
             allocatorSignature: new bytes(0)
         });
 
-        Tribunal.Directive memory directive =
-            Tribunal.Directive({claimant: address(this), dispensation: 0});
-
         // Set block base fee higher than gas price
         vm.fee(2 gwei);
         vm.txGasPrice(1 gwei);
 
         vm.expectRevert(abi.encodeWithSignature("InvalidGasPrice()"));
-        tribunal.petition(claim, mandate, directive);
+        tribunal.fill(claim, mandate, address(this));
     }
 }

@@ -32,7 +32,6 @@ contract Tribunal {
         uint256 expires; // The time at which the claim expires.
         uint256 id; // The token ID of the ERC6909 token to allocate.
         uint256 amount; // The amount of ERC6909 tokens to allocate.
-            // Optional witness may follow.
     }
 
     struct Claim {
@@ -52,11 +51,6 @@ contract Tribunal {
         uint256 baselinePriorityFee; // Base fee threshold where scaling kicks in
         uint256 scalingFactor; // Fee scaling multiplier (1e18 baseline)
         bytes32 salt; // Replay protection parameter
-    }
-
-    struct Directive {
-        address claimant; // Recipient of claimed tokens
-        uint256 dispensation; // Cross-chain message layer payment
     }
 
     // ======== Constants ========
@@ -89,15 +83,15 @@ contract Tribunal {
     }
 
     /**
-     * @notice Submit a petition to process a cross-chain settlement
+     * @notice Attempt to fill a cross-chain settlement
      * @param claim The claim parameters and constraints
      * @param mandate The settlement conditions and amount derivation parameters
-     * @param directive The execution details
+     * @param claimant The recipient of claimed tokens on claim chain
      * @return mandateHash The derived mandate hash
      * @return settlementAmount The amount of tokens to be settled
      * @return claimAmount The amount of tokens to be claimed
      */
-    function petition(Claim calldata claim, Mandate calldata mandate, Directive calldata directive)
+    function fill(Claim calldata claim, Mandate calldata mandate, address claimant)
         external
         payable
         returns (bytes32 mandateHash, uint256 settlementAmount, uint256 claimAmount)
@@ -126,11 +120,6 @@ contract Tribunal {
         // Handle native token withdrawals directly.
         if (mandate.token == address(0)) {
             mandate.recipient.safeTransferETH(settlementAmount);
-            // Return any remaining ETH to the caller
-            uint256 remaining = address(this).balance;
-            if (remaining > 0) {
-                msg.sender.safeTransferETH(remaining);
-            }
         } else {
             // NOTE: settling fee-on-transfer tokens will result in fewer tokens
             // being received by the recipient. Be sure to acommodate for this when
@@ -138,8 +127,14 @@ contract Tribunal {
             mandate.token.safeTransferFrom(msg.sender, mandate.recipient, settlementAmount);
         }
 
-        // Process the directive
-        _processDirective(claim, mandateHash, directive, claimAmount);
+        // Process the directive.
+        _processDirective(claim, mandateHash, claimant, claimAmount);
+
+        // Return any unused native tokens to the caller.
+        uint256 remaining = address(this).balance;
+        if (remaining > 0) {
+            msg.sender.safeTransferETH(remaining);
+        }
     }
 
     /**
@@ -197,11 +192,11 @@ contract Tribunal {
     }
 
     /**
-     * @notice Check if a claim has been processed
+     * @notice Check if a claim has been filled
      * @param claimHash The hash of the claim to check
-     * @return Whether the claim has been processed
+     * @return Whether the claim has been filled
      */
-    function disposition(bytes32 claimHash) external view returns (bool) {
+    function filled(bytes32 claimHash) external view returns (bool) {
         return _dispositions[claimHash];
     }
 
@@ -317,13 +312,13 @@ contract Tribunal {
      * @dev Process the directive for token claims
      * @param claim The claim parameters
      * @param mandateHash The derived mandate hash
-     * @param directive The execution details
+     * @param claimant The recipient of claimed tokens on claim chain
      * @param claimAmount The amount to claim
      */
     function _processDirective(
         Claim calldata claim,
         bytes32 mandateHash,
-        Directive memory directive,
+        address claimant,
         uint256 claimAmount
     ) internal virtual {
         // NOTE: Override & implement directive processing
