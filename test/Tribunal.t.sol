@@ -229,13 +229,13 @@ contract TribunalTest is Test {
         vm.fee(baselinePriorityFee);
         vm.txGasPrice(baselinePriorityFee + 1 wei); // Set gas price slightly above base fee
 
-        (uint256 settlementAmount, uint256 claimAmount) =
+        (uint256 fillAmount, uint256 claimAmount) =
             tribunal.deriveAmounts(maximumAmount, minimumAmount, baselinePriorityFee, scalingFactor);
 
         assertEq(
-            settlementAmount,
+            fillAmount,
             minimumAmount,
-            "Settlement amount should equal minimum when no priority fee above baseline"
+            "Fill amount should equal minimum when no priority fee above baseline"
         );
         assertEq(
             claimAmount,
@@ -259,14 +259,10 @@ contract TribunalTest is Test {
         // Set priority fee to baseline + 2 wei
         vm.txGasPrice(1 gwei + baselinePriorityFee + 2 wei);
 
-        (uint256 settlementAmount, uint256 claimAmount) =
+        (uint256 fillAmount, uint256 claimAmount) =
             tribunal.deriveAmounts(maximumAmount, minimumAmount, baselinePriorityFee, scalingFactor);
 
-        assertEq(
-            settlementAmount,
-            minimumAmount,
-            "Settlement amount should remain at minimum for exact-out"
-        );
+        assertEq(fillAmount, minimumAmount, "Fill amount should remain at minimum for exact-out");
 
         // Priority fee above baseline is 2 wei
         // For exact-out with 0.5 WAD scaling factor:
@@ -294,7 +290,7 @@ contract TribunalTest is Test {
         // Set priority fee to baseline + 2 wei
         vm.txGasPrice(1 gwei + baselinePriorityFee + 2 wei);
 
-        (uint256 settlementAmount, uint256 claimAmount) =
+        (uint256 fillAmount, uint256 claimAmount) =
             tribunal.deriveAmounts(maximumAmount, minimumAmount, baselinePriorityFee, scalingFactor);
 
         assertEq(claimAmount, maximumAmount, "Claim amount should remain at maximum for exact-in");
@@ -306,8 +302,8 @@ contract TribunalTest is Test {
         //                   = 1e18 + 1e18
         //                   = 2e18
         uint256 scalingMultiplier = 1e18 + ((scalingFactor - 1e18) * 2);
-        uint256 expectedSettlementAmount = minimumAmount.mulWadUp(scalingMultiplier);
-        assertEq(settlementAmount, expectedSettlementAmount, "Settlement amount should double");
+        uint256 expectedFillAmount = minimumAmount.mulWadUp(scalingMultiplier);
+        assertEq(fillAmount, expectedFillAmount, "Fill amount should double");
     }
 
     /**
@@ -326,7 +322,7 @@ contract TribunalTest is Test {
         // Set priority fee to baseline + 10 wei
         vm.txGasPrice(baseFee + baselinePriorityFee + 10 wei);
 
-        (uint256 settlementAmount, uint256 claimAmount) =
+        (uint256 fillAmount, uint256 claimAmount) =
             tribunal.deriveAmounts(maximumAmount, minimumAmount, baselinePriorityFee, scalingFactor);
 
         assertEq(claimAmount, maximumAmount, "Claim amount should remain at maximum for exact-in");
@@ -338,8 +334,8 @@ contract TribunalTest is Test {
         //                   = 1e18 + 5e18
         //                   = 6e18
         uint256 scalingMultiplier = 1e18 + ((scalingFactor - 1e18) * 10);
-        uint256 expectedSettlementAmount = minimumAmount.mulWadUp(scalingMultiplier);
-        assertEq(settlementAmount, expectedSettlementAmount, "Settlement amount should increase 6x");
+        uint256 expectedFillAmount = minimumAmount.mulWadUp(scalingMultiplier);
+        assertEq(fillAmount, expectedFillAmount, "Fill amount should increase 6x");
     }
 
     function test_DeriveAmounts_RealisticExactIn() public {
@@ -354,7 +350,7 @@ contract TribunalTest is Test {
         // Set priority fee to baseline + 5 gwei
         vm.txGasPrice(1 gwei + baselinePriorityFee + 5 gwei);
 
-        (uint256 settlementAmount, uint256 claimAmount) =
+        (uint256 fillAmount, uint256 claimAmount) =
             tribunal.deriveAmounts(maximumAmount, minimumAmount, baselinePriorityFee, scalingFactor);
 
         assertEq(claimAmount, maximumAmount, "Claim amount should remain at maximum for exact-in");
@@ -365,12 +361,10 @@ contract TribunalTest is Test {
         //                   = 1e18 + (1e11 * 5e9)
         //                   = 1e18 + 0.5e18
         //                   = 1.5e18
-        // So settlement amount increases by 50%
+        // So fill amount increases by 50%
         uint256 scalingMultiplier = 1e18 + ((scalingFactor - 1e18) * 5 gwei);
-        uint256 expectedSettlementAmount = minimumAmount.mulWadUp(scalingMultiplier);
-        assertEq(
-            settlementAmount, expectedSettlementAmount, "Settlement amount should increase by 50%"
-        );
+        uint256 expectedFillAmount = minimumAmount.mulWadUp(scalingMultiplier);
+        assertEq(fillAmount, expectedFillAmount, "Fill amount should increase by 50%");
     }
 
     function test_DeriveAmounts_RealisticExactOut() public {
@@ -385,14 +379,10 @@ contract TribunalTest is Test {
         // Set priority fee to baseline + 5 gwei
         vm.txGasPrice(1 gwei + baselinePriorityFee + 5 gwei);
 
-        (uint256 settlementAmount, uint256 claimAmount) =
+        (uint256 fillAmount, uint256 claimAmount) =
             tribunal.deriveAmounts(maximumAmount, minimumAmount, baselinePriorityFee, scalingFactor);
 
-        assertEq(
-            settlementAmount,
-            minimumAmount,
-            "Settlement amount should remain at minimum for exact-out"
-        );
+        assertEq(fillAmount, minimumAmount, "Fill amount should remain at minimum for exact-out");
 
         // Priority fee above baseline is 5 gwei (5e9 wei)
         // For exact-out with 0.9999999999 WAD scaling factor:

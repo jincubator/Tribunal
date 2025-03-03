@@ -10,7 +10,7 @@ import {SafeTransferLib} from "the-compact/lib/solady/src/utils/SafeTransferLib.
  * @author 0age
  * @notice Tribunal is a framework for processing cross-chain swap settlements against PGA (priority gas auction)
  * blockchains. It ensures that tokens are transferred according to the mandate specified by the originating sponsor
- * and enforces that a single party is able to perform the settlement in the event of a dispute.
+ * and enforces that a single party is able to perform the fill in the event of a dispute.
  * @dev This contract is under active development; contributions, reviews, and feedback are greatly appreciated.
  */
 contract Tribunal {
@@ -53,10 +53,10 @@ contract Tribunal {
     struct Mandate {
         // uint256 chainId (implicit arg, included in EIP712 payload)
         // address tribunal (implicit arg, included in EIP712 payload)
-        address recipient; // Recipient of settled tokens
+        address recipient; // Recipient of filled tokens
         uint256 expires; // Mandate expiration timestamp
-        address token; // Settlement token (address(0) for native)
-        uint256 minimumAmount; // Minimum settlement amount
+        address token; // Fill token (address(0) for native)
+        uint256 minimumAmount; // Minimum fill amount
         uint256 baselinePriorityFee; // Base fee threshold where scaling kicks in
         uint256 scalingFactor; // Fee scaling multiplier (1e18 baseline)
         bytes32 salt; // Replay protection parameter
@@ -94,16 +94,16 @@ contract Tribunal {
     /**
      * @notice Attempt to fill a cross-chain settlement
      * @param claim The claim parameters and constraints
-     * @param mandate The settlement conditions and amount derivation parameters
+     * @param mandate The fill conditions and amount derivation parameters
      * @param claimant The recipient of claimed tokens on claim chain
      * @return mandateHash The derived mandate hash
-     * @return settlementAmount The amount of tokens to be settled
+     * @return fillAmount The amount of tokens to be filled
      * @return claimAmount The amount of tokens to be claimed
      */
     function fill(Claim calldata claim, Mandate calldata mandate, address claimant)
         external
         payable
-        returns (bytes32 mandateHash, uint256 settlementAmount, uint256 claimAmount)
+        returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount)
     {
         return _fill(claim, mandate, claimant);
     }
@@ -111,7 +111,7 @@ contract Tribunal {
     /**
      * @notice Get a quote for the required dispensation amount
      * @param claim The claim parameters and constraints
-     * @param mandate The settlement conditions and amount derivation parameters
+     * @param mandate The fill conditions and amount derivation parameters
      * @param claimant The address of the claimant
      * @return dispensation The suggested dispensation amount
      */
@@ -198,12 +198,12 @@ contract Tribunal {
     }
 
     /**
-     * @dev Derives settlement and claim amounts based on mandate parameters and current conditions
+     * @dev Derives fill and claim amounts based on mandate parameters and current conditions
      * @param maximumAmount The maximum amount that can be claimed
-     * @param minimumAmount The minimum amount that must be settled
+     * @param minimumAmount The minimum amount that must be filled
      * @param baselinePriorityFee The baseline priority fee in wei
      * @param scalingFactor The scaling factor to apply per priority fee wei above baseline
-     * @return settlementAmount The derived settlement amount
+     * @return fillAmount The derived fill amount
      * @return claimAmount The derived claim amount
      */
     function deriveAmounts(
@@ -211,7 +211,7 @@ contract Tribunal {
         uint256 minimumAmount,
         uint256 baselinePriorityFee,
         uint256 scalingFactor
-    ) public view returns (uint256 settlementAmount, uint256 claimAmount) {
+    ) public view returns (uint256 fillAmount, uint256 claimAmount) {
         // Get the priority fee above baseline
         uint256 priorityFeeAboveBaseline = _getPriorityFee(baselinePriorityFee);
 
@@ -223,23 +223,23 @@ contract Tribunal {
         // Calculate the scaling multiplier based on priority fee
         uint256 scalingMultiplier;
         if (scalingFactor > 1e18) {
-            // For exact-in, increase settlement amount
+            // For exact-in, increase fill amount
             scalingMultiplier = 1e18 + ((scalingFactor - 1e18) * priorityFeeAboveBaseline);
             claimAmount = maximumAmount;
-            settlementAmount = minimumAmount.mulWadUp(scalingMultiplier);
+            fillAmount = minimumAmount.mulWadUp(scalingMultiplier);
         } else {
             // For exact-out, decrease claim amount
             scalingMultiplier = 1e18 - ((1e18 - scalingFactor) * priorityFeeAboveBaseline);
-            settlementAmount = minimumAmount;
+            fillAmount = minimumAmount;
             claimAmount = maximumAmount.mulWad(scalingMultiplier);
         }
 
-        return (settlementAmount, claimAmount);
+        return (fillAmount, claimAmount);
     }
 
     function _fill(Claim calldata claim, Mandate calldata mandate, address claimant)
         internal
-        returns (bytes32 mandateHash, uint256 settlementAmount, uint256 claimAmount)
+        returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount)
     {
         // Ensure that the mandate has not expired.
         mandate.expires.later();
@@ -254,8 +254,8 @@ contract Tribunal {
         }
         _dispositions[claimHash] = true;
 
-        // Derive settlement and claim amounts.
-        (settlementAmount, claimAmount) = deriveAmounts(
+        // Derive fill and claim amounts.
+        (fillAmount, claimAmount) = deriveAmounts(
             claim.compact.amount,
             mandate.minimumAmount,
             mandate.baselinePriorityFee,
@@ -264,16 +264,16 @@ contract Tribunal {
 
         // Handle native token withdrawals directly.
         if (mandate.token == address(0)) {
-            mandate.recipient.safeTransferETH(settlementAmount);
+            mandate.recipient.safeTransferETH(fillAmount);
         } else {
             // NOTE: settling fee-on-transfer tokens will result in fewer tokens
             // being received by the recipient. Be sure to acommodate for this when
-            // providing the desired settlement amount.
-            mandate.token.safeTransferFrom(msg.sender, mandate.recipient, settlementAmount);
+            // providing the desired fill amount.
+            mandate.token.safeTransferFrom(msg.sender, mandate.recipient, fillAmount);
         }
 
         // Emit the fill event.
-        emit Fill(claim.compact.sponsor, claimant, claimHash, settlementAmount, claimAmount);
+        emit Fill(claim.compact.sponsor, claimant, claimHash, fillAmount, claimAmount);
 
         // Process the directive.
         _processDirective(claim, mandateHash, claimant, claimAmount);
@@ -302,7 +302,7 @@ contract Tribunal {
             revert AlreadyClaimed();
         }
 
-        // Derive settlement and claim amounts.
+        // Derive fill and claim amounts.
         (, uint256 claimAmount) = deriveAmounts(
             claim.compact.amount,
             mandate.minimumAmount,
