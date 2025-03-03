@@ -208,6 +208,9 @@ contract TribunalTest is Test {
         bytes32 claimHash = tribunal.deriveClaimHash(claim, tribunal.deriveMandateHash(mandate));
         assertFalse(tribunal.filled(claimHash));
 
+        vm.expectEmit(true, true, false, true, address(tribunal));
+        emit Tribunal.Fill(sponsor, address(this), claimHash, 1 ether, 1 ether);
+
         tribunal.fill(claim, mandate, address(this));
         assertTrue(tribunal.filled(claimHash));
     }
@@ -473,6 +476,12 @@ contract TribunalTest is Test {
         // Record initial balances
         uint256 initialRecipientBalance = token.balanceOf(address(0xBEEF));
         uint256 initialSenderBalance = token.balanceOf(address(this));
+
+        // Derive claim hash
+        bytes32 claimHash = tribunal.deriveClaimHash(claim, tribunal.deriveMandateHash(mandate));
+
+        vm.expectEmit(true, true, false, true, address(tribunal));
+        emit Tribunal.Fill(sponsor, address(this), claimHash, 100e18, 1 ether);
 
         // Execute fill
         tribunal.fill(claim, mandate, address(this));
