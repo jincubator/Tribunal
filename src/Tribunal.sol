@@ -19,6 +19,15 @@ contract Tribunal {
     using FixedPointMathLib for uint256;
     using SafeTransferLib for address;
 
+    // ======== Events ========
+    event Fill(
+        address indexed sponsor,
+        address indexed claimant,
+        bytes32 claimHash,
+        uint256 fillAmount,
+        uint256 claimAmount
+    );
+
     // ======== Custom Errors ========
     error InvalidGasPrice();
     error AlreadyClaimed();
@@ -262,6 +271,9 @@ contract Tribunal {
             // providing the desired settlement amount.
             mandate.token.safeTransferFrom(msg.sender, mandate.recipient, settlementAmount);
         }
+
+        // Emit the fill event.
+        emit Fill(claim.compact.sponsor, claimant, claimHash, settlementAmount, claimAmount);
 
         // Process the directive.
         _processDirective(claim, mandateHash, claimant, claimAmount);
