@@ -96,45 +96,7 @@ contract Tribunal {
         payable
         returns (bytes32 mandateHash, uint256 settlementAmount, uint256 claimAmount)
     {
-        // Ensure that the mandate has not expired.
-        mandate.expires.later();
-
-        // Derive mandate hash.
-        mandateHash = deriveMandateHash(mandate);
-
-        // Derive and check claim hash
-        bytes32 claimHash = deriveClaimHash(claim, mandateHash);
-        if (_dispositions[claimHash]) {
-            revert AlreadyClaimed();
-        }
-        _dispositions[claimHash] = true;
-
-        // Derive settlement and claim amounts.
-        (settlementAmount, claimAmount) = deriveAmounts(
-            claim.compact.amount,
-            mandate.minimumAmount,
-            mandate.baselinePriorityFee,
-            mandate.scalingFactor
-        );
-
-        // Handle native token withdrawals directly.
-        if (mandate.token == address(0)) {
-            mandate.recipient.safeTransferETH(settlementAmount);
-        } else {
-            // NOTE: settling fee-on-transfer tokens will result in fewer tokens
-            // being received by the recipient. Be sure to acommodate for this when
-            // providing the desired settlement amount.
-            mandate.token.safeTransferFrom(msg.sender, mandate.recipient, settlementAmount);
-        }
-
-        // Process the directive.
-        _processDirective(claim, mandateHash, claimant, claimAmount);
-
-        // Return any unused native tokens to the caller.
-        uint256 remaining = address(this).balance;
-        if (remaining > 0) {
-            msg.sender.safeTransferETH(remaining);
-        }
+        return _fill(claim, mandate, claimant);
     }
 
     /**
@@ -149,28 +111,7 @@ contract Tribunal {
         view
         returns (uint256 dispensation)
     {
-        // Ensure that the mandate has not expired.
-        mandate.expires.later();
-
-        // Derive mandate hash.
-        bytes32 mandateHash = deriveMandateHash(mandate);
-
-        // Derive and check claim hash
-        bytes32 claimHash = deriveClaimHash(claim, mandateHash);
-        if (_dispositions[claimHash]) {
-            revert AlreadyClaimed();
-        }
-
-        // Derive settlement and claim amounts.
-        (, uint256 claimAmount) = deriveAmounts(
-            claim.compact.amount,
-            mandate.minimumAmount,
-            mandate.baselinePriorityFee,
-            mandate.scalingFactor
-        );
-
-        // Process the quote.
-        dispensation = _quoteDirective(claim, mandateHash, claimant, claimAmount);
+        return _quote(claim, mandate, claimant);
     }
 
     /**
@@ -285,6 +226,80 @@ contract Tribunal {
         }
 
         return (settlementAmount, claimAmount);
+    }
+
+    function _fill(Claim calldata claim, Mandate calldata mandate, address claimant)
+        internal
+        returns (bytes32 mandateHash, uint256 settlementAmount, uint256 claimAmount)
+    {
+        // Ensure that the mandate has not expired.
+        mandate.expires.later();
+
+        // Derive mandate hash.
+        mandateHash = deriveMandateHash(mandate);
+
+        // Derive and check claim hash
+        bytes32 claimHash = deriveClaimHash(claim, mandateHash);
+        if (_dispositions[claimHash]) {
+            revert AlreadyClaimed();
+        }
+        _dispositions[claimHash] = true;
+
+        // Derive settlement and claim amounts.
+        (settlementAmount, claimAmount) = deriveAmounts(
+            claim.compact.amount,
+            mandate.minimumAmount,
+            mandate.baselinePriorityFee,
+            mandate.scalingFactor
+        );
+
+        // Handle native token withdrawals directly.
+        if (mandate.token == address(0)) {
+            mandate.recipient.safeTransferETH(settlementAmount);
+        } else {
+            // NOTE: settling fee-on-transfer tokens will result in fewer tokens
+            // being received by the recipient. Be sure to acommodate for this when
+            // providing the desired settlement amount.
+            mandate.token.safeTransferFrom(msg.sender, mandate.recipient, settlementAmount);
+        }
+
+        // Process the directive.
+        _processDirective(claim, mandateHash, claimant, claimAmount);
+
+        // Return any unused native tokens to the caller.
+        uint256 remaining = address(this).balance;
+        if (remaining > 0) {
+            msg.sender.safeTransferETH(remaining);
+        }
+    }
+
+    function _quote(Claim calldata claim, Mandate calldata mandate, address claimant)
+        internal
+        view
+        returns (uint256 dispensation)
+    {
+        // Ensure that the mandate has not expired.
+        mandate.expires.later();
+
+        // Derive mandate hash.
+        bytes32 mandateHash = deriveMandateHash(mandate);
+
+        // Derive and check claim hash
+        bytes32 claimHash = deriveClaimHash(claim, mandateHash);
+        if (_dispositions[claimHash]) {
+            revert AlreadyClaimed();
+        }
+
+        // Derive settlement and claim amounts.
+        (, uint256 claimAmount) = deriveAmounts(
+            claim.compact.amount,
+            mandate.minimumAmount,
+            mandate.baselinePriorityFee,
+            mandate.scalingFactor
+        );
+
+        // Process the quote.
+        dispensation = _quoteDirective(claim, mandateHash, claimant, claimAmount);
     }
 
     /**
