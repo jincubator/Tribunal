@@ -155,7 +155,7 @@ contract Tribunal {
      * @param mandate The mandate containing all hash parameters
      * @return The derived mandate hash
      */
-    function deriveMandateHash(Mandate calldata mandate) public view returns (bytes32) {
+    function deriveMandateHash(Mandate memory mandate) public view returns (bytes32) {
         return keccak256(
             abi.encode(
                 MANDATE_TYPEHASH,
@@ -178,7 +178,7 @@ contract Tribunal {
      * @param mandateHash The derived mandate hash
      * @return The claim hash
      */
-    function deriveClaimHash(Claim calldata claim, bytes32 mandateHash)
+    function deriveClaimHash(Claim memory claim, bytes32 mandateHash)
         public
         pure
         returns (bytes32)
@@ -237,7 +237,7 @@ contract Tribunal {
         return (fillAmount, claimAmount);
     }
 
-    function _fill(Claim calldata claim, Mandate calldata mandate, address claimant)
+    function _fill(Claim memory claim, Mandate memory mandate, address claimant)
         internal
         returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount)
     {
@@ -285,7 +285,7 @@ contract Tribunal {
         }
     }
 
-    function _quote(Claim calldata claim, Mandate calldata mandate, address claimant)
+    function _quote(Claim memory claim, Mandate memory mandate, address claimant)
         internal
         view
         returns (uint256 dispensation)
@@ -343,7 +343,7 @@ contract Tribunal {
      * @param claimAmount The amount to claim
      */
     function _processDirective(
-        Claim calldata claim,
+        Claim memory claim,
         bytes32 mandateHash,
         address claimant,
         uint256 claimAmount
@@ -361,7 +361,7 @@ contract Tribunal {
      * @return dispensation The quoted dispensation amount
      */
     function _quoteDirective(
-        Claim calldata claim,
+        Claim memory claim,
         bytes32 mandateHash,
         address claimant,
         uint256 claimAmount
