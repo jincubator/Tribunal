@@ -205,7 +205,7 @@ contract TribunalTest is Test {
             allocatorSignature: new bytes(0)
         });
 
-        bytes32 claimHash = tribunal.deriveClaimHash(claim, tribunal.deriveMandateHash(mandate));
+        bytes32 claimHash = tribunal.deriveClaimHash(claim.compact, tribunal.deriveMandateHash(mandate));
         assertFalse(tribunal.filled(claimHash));
 
         vm.expectEmit(true, true, false, true, address(tribunal));
@@ -468,7 +468,7 @@ contract TribunalTest is Test {
         uint256 initialSenderBalance = token.balanceOf(address(this));
 
         // Derive claim hash
-        bytes32 claimHash = tribunal.deriveClaimHash(claim, tribunal.deriveMandateHash(mandate));
+        bytes32 claimHash = tribunal.deriveClaimHash(claim.compact, tribunal.deriveMandateHash(mandate));
 
         vm.expectEmit(true, true, false, true, address(tribunal));
         emit Tribunal.Fill(sponsor, address(this), claimHash, 100e18, 1 ether);
@@ -529,7 +529,7 @@ contract TribunalTest is Test {
         );
 
         // Verify the derived claim hash matches the expected hash
-        assertEq(tribunal.deriveClaimHash(claim, mandateHash), expectedHash);
+        assertEq(tribunal.deriveClaimHash(claim.compact, mandateHash), expectedHash);
     }
 
     /**

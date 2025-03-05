@@ -73,19 +73,21 @@ abstract contract MockSetup is Test {
         minimumFillAmount = 1 ether;
         claimAmount = 10 ether;
 
+        address arbiter = makeAddr("Arbiter");
+
         ERC7683Tribunal.Mandate memory mandate = _getMandate();
         claim = Tribunal.Claim({
             chainId: block.chainid,
             compact: Tribunal.Compact({
-                arbiter: makeAddr("Arbiter"),
+                arbiter: arbiter,
                 sponsor: sponsor,
                 nonce: uint256(bytes32(abi.encodePacked(sponsor, uint96(0)))),
                 expires: 1703116800,
                 id: 1,
                 amount: claimAmount
             }),
-            sponsorSignature: new bytes(0),
-            allocatorSignature: new bytes(0)
+            sponsorSignature: hex"abcd",
+            allocatorSignature: hex"1234"
         });
         Output memory outputMaxSpent = Output({
             token: bytes32(uint256(uint160(address(token)))),
@@ -161,7 +163,7 @@ contract ERC7683Tribunal_Fill is MockSetup {
 
         Tribunal.Mandate memory mandate = _getMandate();
         bytes32 mandateHash = tribunal.deriveMandateHash(mandate);
-        bytes32 claimHash = tribunal.deriveClaimHash(claim, mandateHash);
+        bytes32 claimHash = tribunal.deriveClaimHash(claim.compact, mandateHash);
 
         vm.expectEmit(true, true, false, true, address(tribunal));
         emit Tribunal.Fill(sponsor, filler, claimHash, minimumFillAmount, claimAmount);

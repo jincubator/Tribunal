@@ -9,3 +9,6 @@ bytecode_hash = "none"
 
 [fmt]
 line_length = 100
+
+[profile.remappings]
+solady = "lib/solady/src"
