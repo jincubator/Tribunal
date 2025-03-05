@@ -44,27 +44,27 @@ contract Tribunal {
     }
 
     struct Claim {
-        uint256 chainId; // Claim processing chain ID
+        uint256 chainId; // Claim processing chain ID.
         Compact compact;
-        bytes sponsorSignature; // Authorization from the sponsor
-        bytes allocatorSignature; // Authorization from the allocator
+        bytes sponsorSignature; // Authorization from the sponsor.
+        bytes allocatorSignature; // Authorization from the allocator.
     }
 
     struct Mandate {
-        // uint256 chainId (implicit arg, included in EIP712 payload)
-        // address tribunal (implicit arg, included in EIP712 payload)
-        address recipient; // Recipient of filled tokens
-        uint256 expires; // Mandate expiration timestamp
-        address token; // Fill token (address(0) for native)
-        uint256 minimumAmount; // Minimum fill amount
-        uint256 baselinePriorityFee; // Base fee threshold where scaling kicks in
-        uint256 scalingFactor; // Fee scaling multiplier (1e18 baseline)
-        bytes32 salt; // Replay protection parameter
+        // uint256 chainId (implicit arg, included in EIP712 payload).
+        // address tribunal (implicit arg, included in EIP712 payload).
+        address recipient; // Recipient of filled tokens.
+        uint256 expires; // Mandate expiration timestamp.
+        address token; // Fill token (address(0) for native).
+        uint256 minimumAmount; // Minimum fill amount.
+        uint256 baselinePriorityFee; // Base fee threshold where scaling kicks in.
+        uint256 scalingFactor; // Fee scaling multiplier (1e18 baseline).
+        bytes32 salt; // Replay protection parameter.
     }
 
     // ======== Constants ========
 
-    /// @notice Base scaling factor (1e18)
+    /// @notice Base scaling factor (1e18).
     uint256 public constant BASE_SCALING_FACTOR = 1e18;
 
     /// @notice keccak256("Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)")
@@ -77,7 +77,7 @@ contract Tribunal {
 
     // ======== Storage ========
 
-    /// @notice Mapping of claim hash to whether it has been used
+    /// @notice Mapping of claim hash to whether it has been used.
     mapping(bytes32 => bool) private _dispositions;
 
     // ======== Constructor ========
@@ -86,19 +86,22 @@ contract Tribunal {
 
     // ======== External Functions ========
 
-    /// @notice Returns the name of the contract
+    /**
+     * @notice Returns the name of the contract.
+     * @return The name of the contract.
+     */
     function name() external pure returns (string memory) {
         return "Tribunal";
     }
 
     /**
-     * @notice Attempt to fill a cross-chain settlement
-     * @param claim The claim parameters and constraints
-     * @param mandate The fill conditions and amount derivation parameters
-     * @param claimant The recipient of claimed tokens on claim chain
-     * @return mandateHash The derived mandate hash
-     * @return fillAmount The amount of tokens to be filled
-     * @return claimAmount The amount of tokens to be claimed
+     * @notice Attempt to fill a cross-chain swap.
+     * @param claim The claim parameters and constraints.
+     * @param mandate The fill conditions and amount derivation parameters.
+     * @param claimant The recipient of claimed tokens on the claim chain.
+     * @return mandateHash The derived mandate hash.
+     * @return fillAmount The amount of tokens to be filled.
+     * @return claimAmount The amount of tokens to be claimed.
      */
     function fill(Claim calldata claim, Mandate calldata mandate, address claimant)
         external
@@ -116,11 +119,11 @@ contract Tribunal {
     }
 
     /**
-     * @notice Get a quote for the required dispensation amount
-     * @param claim The claim parameters and constraints
-     * @param mandate The fill conditions and amount derivation parameters
-     * @param claimant The address of the claimant
-     * @return dispensation The suggested dispensation amount
+     * @notice Get a quote for any native tokens supplied to pay for dispensation (i.e. cost to trigger settlement).
+     * @param claim The claim parameters and constraints.
+     * @param mandate The fill conditions and amount derivation parameters.
+     * @param claimant The address of the claimant.
+     * @return dispensation The suggested dispensation amount.
      */
     function quote(Claim calldata claim, Mandate calldata mandate, address claimant)
         external
@@ -138,10 +141,10 @@ contract Tribunal {
     }
 
     /**
-     * @notice Get details about the compact witness
-     * @return witnessTypeString The EIP-712 type string for the mandate
-     * @return tokenArg The position of the token argument
-     * @return amountArg The position of the amount argument
+     * @notice Get details about the expected compact witness.
+     * @return witnessTypeString The EIP-712 type string for the mandate.
+     * @return tokenArg The position of the token argument.
+     * @return amountArg The position of the amount argument.
      */
     function getCompactWitnessDetails()
         external
@@ -156,18 +159,18 @@ contract Tribunal {
     }
 
     /**
-     * @notice Check if a claim has been filled
-     * @param claimHash The hash of the claim to check
-     * @return Whether the claim has been filled
+     * @notice Check if a claim has been filled.
+     * @param claimHash The hash of the claim to check.
+     * @return Whether the claim has been filled.
      */
     function filled(bytes32 claimHash) external view returns (bool) {
         return _dispositions[claimHash];
     }
 
     /**
-     * @dev Derives the mandate hash using EIP-712 typed data
-     * @param mandate The mandate containing all hash parameters
-     * @return The derived mandate hash
+     * @notice Derives the mandate hash using EIP-712 typed data.
+     * @param mandate The mandate containing all hash parameters.
+     * @return The derived mandate hash.
      */
     function deriveMandateHash(Mandate calldata mandate) public view returns (bytes32) {
         return keccak256(
@@ -187,10 +190,10 @@ contract Tribunal {
     }
 
     /**
-     * @dev Derives the claim hash from compact and mandate hash
-     * @param compact The compact parameters
-     * @param mandateHash The derived mandate hash
-     * @return The claim hash
+     * @notice Derives the claim hash from compact and mandate hash.
+     * @param compact The compact parameters.
+     * @param mandateHash The derived mandate hash.
+     * @return The claim hash.
      */
     function deriveClaimHash(Compact calldata compact, bytes32 mandateHash)
         public
@@ -212,13 +215,13 @@ contract Tribunal {
     }
 
     /**
-     * @dev Derives fill and claim amounts based on mandate parameters and current conditions
-     * @param maximumAmount The maximum amount that can be claimed
-     * @param minimumAmount The minimum amount that must be filled
-     * @param baselinePriorityFee The baseline priority fee in wei
-     * @param scalingFactor The scaling factor to apply per priority fee wei above baseline
-     * @return fillAmount The derived fill amount
-     * @return claimAmount The derived claim amount
+     * @notice Derives fill and claim amounts based on mandate parameters and current conditions.
+     * @param maximumAmount The maximum amount that can be claimed.
+     * @param minimumAmount The minimum amount that must be filled.
+     * @param baselinePriorityFee The baseline priority fee in wei.
+     * @param scalingFactor The scaling factor to apply per priority fee wei above baseline.
+     * @return fillAmount The derived fill amount.
+     * @return claimAmount The derived claim amount.
      */
     function deriveAmounts(
         uint256 maximumAmount,
@@ -226,23 +229,23 @@ contract Tribunal {
         uint256 baselinePriorityFee,
         uint256 scalingFactor
     ) public view returns (uint256 fillAmount, uint256 claimAmount) {
-        // Get the priority fee above baseline
+        // Get the priority fee above baseline.
         uint256 priorityFeeAboveBaseline = _getPriorityFee(baselinePriorityFee);
 
-        // If no fee above baseline, return original amounts
+        // If no fee above baseline, return original amounts.
         if (priorityFeeAboveBaseline == 0) {
             return (minimumAmount, maximumAmount);
         }
 
-        // Calculate the scaling multiplier based on priority fee
+        // Calculate the scaling multiplier based on priority fee.
         uint256 scalingMultiplier;
         if (scalingFactor > 1e18) {
-            // For exact-in, increase fill amount
+            // For exact-in, increase fill amount.
             scalingMultiplier = 1e18 + ((scalingFactor - 1e18) * priorityFeeAboveBaseline);
             claimAmount = maximumAmount;
             fillAmount = minimumAmount.mulWadUp(scalingMultiplier);
         } else {
-            // For exact-out, decrease claim amount
+            // For exact-out, decrease claim amount.
             scalingMultiplier = 1e18 - ((1e18 - scalingFactor) * priorityFeeAboveBaseline);
             fillAmount = minimumAmount;
             claimAmount = maximumAmount.mulWad(scalingMultiplier);
@@ -251,6 +254,18 @@ contract Tribunal {
         return (fillAmount, claimAmount);
     }
 
+    /**
+     * @notice Internal implementation of the fill function.
+     * @param chainId The claim chain where the resource lock is held.
+     * @param compact The compact parameters.
+     * @param sponsorSignature The signature of the sponsor.
+     * @param allocatorSignature The signature of the allocator.
+     * @param mandate The fill conditions and amount derivation parameters.
+     * @param claimant The recipient of claimed tokens on the claim chain.
+     * @return mandateHash The derived mandate hash.
+     * @return fillAmount The amount of tokens to be filled.
+     * @return claimAmount The amount of tokens to be claimed.
+     */
     function _fill(
         uint256 chainId,
         Compact calldata compact,
@@ -265,7 +280,7 @@ contract Tribunal {
         // Derive mandate hash.
         mandateHash = deriveMandateHash(mandate);
 
-        // Derive and check claim hash
+        // Derive and check claim hash.
         bytes32 claimHash = deriveClaimHash(compact, mandateHash);
         if (_dispositions[claimHash]) {
             revert AlreadyClaimed();
@@ -284,7 +299,7 @@ contract Tribunal {
         if (mandate.token == address(0)) {
             mandate.recipient.safeTransferETH(fillAmount);
         } else {
-            // NOTE: settling fee-on-transfer tokens will result in fewer tokens
+            // NOTE: Settling fee-on-transfer tokens will result in fewer tokens
             // being received by the recipient. Be sure to acommodate for this when
             // providing the desired fill amount.
             mandate.token.safeTransferFrom(msg.sender, mandate.recipient, fillAmount);
@@ -311,6 +326,16 @@ contract Tribunal {
         }
     }
 
+    /**
+     * @notice Internal implementation of the quote function.
+     * @param chainId The claim chain where the resource lock is held.
+     * @param compact The compact parameters.
+     * @param sponsorSignature The signature of the sponsor.
+     * @param allocatorSignature The signature of the allocator.
+     * @param mandate The fill conditions and amount derivation parameters.
+     * @param claimant The recipient of claimed tokens on the claim chain.
+     * @return dispensation The suggested dispensation amount.
+     */
     function _quote(
         uint256 chainId,
         Compact calldata compact,
@@ -352,9 +377,9 @@ contract Tribunal {
     }
 
     /**
-     * @dev Calculates the priority fee above the baseline
-     * @param baselinePriorityFee The base fee threshold where scaling kicks in
-     * @return priorityFee The priority fee above baseline (or 0 if below)
+     * @notice Calculates the priority fee above the baseline.
+     * @param baselinePriorityFee The base fee threshold where scaling kicks in.
+     * @return priorityFee The priority fee above baseline (or 0 if below).
      */
     function _getPriorityFee(uint256 baselinePriorityFee)
         internal
@@ -373,14 +398,14 @@ contract Tribunal {
     }
 
     /**
-     * @dev Process the directive for token claims
-     * @param chainId The claim chain where the resource lock is held
-     * @param compact The compact parameters
-     * @param sponsorSignature The signature of the sponsor
-     * @param allocatorSignature The signature of the allocator
-     * @param mandateHash The derived mandate hash
-     * @param claimant The recipient of claimed tokens on claim chain
-     * @param claimAmount The amount to claim
+     * @notice Process the mandated directive (i.e. trigger settlement).
+     * @param chainId The claim chain where the resource lock is held.
+     * @param compact The compact parameters.
+     * @param sponsorSignature The signature of the sponsor.
+     * @param allocatorSignature The signature of the allocator.
+     * @param mandateHash The derived mandate hash.
+     * @param claimant The recipient of claimed tokens on claim chain.
+     * @param claimAmount The amount to claim.
      */
     function _processDirective(
         uint256 chainId,
@@ -391,20 +416,19 @@ contract Tribunal {
         address claimant,
         uint256 claimAmount
     ) internal virtual {
-        // NOTE: Override & implement directive processing
+        // NOTE: Override & implement directive processing.
     }
 
     /**
-     * @dev Derive the quote for the dispensation required for
-     * the directive for token claims
-     * @param chainId The claim chain where the resource lock is held
-     * @param compact The compact parameters
-     * @param sponsorSignature The signature of the sponsor
-     * @param allocatorSignature The signature of the allocator
-     * @param mandateHash The derived mandate hash
-     * @param claimant The address of the claimant
-     * @param claimAmount The amount to claim
-     * @return dispensation The quoted dispensation amount
+     * @notice Derive the quote for any native tokens supplied to pay for dispensation (i.e. cost to trigger settlement).
+     * @param chainId The claim chain where the resource lock is held.
+     * @param compact The compact parameters.
+     * @param sponsorSignature The signature of the sponsor.
+     * @param allocatorSignature The signature of the allocator.
+     * @param mandateHash The derived mandate hash.
+     * @param claimant The address of the claimant.
+     * @param claimAmount The amount to claim.
+     * @return dispensation The quoted dispensation amount.
      */
     function _quoteDirective(
         uint256 chainId,
@@ -423,7 +447,7 @@ contract Tribunal {
         claimant;
         claimAmount;
 
-        // NOTE: Override & implement quote logic
+        // NOTE: Override & implement quote logic.
         return msg.sender.balance / 1000;
     }
 }
