@@ -4,3 +4,6 @@
 [submodule "lib/the-compact"]
 	path = lib/the-compact
 	url = https://github.com/uniswap/the-compact
+[submodule "lib/solady"]
+	path = lib/solady
+	url = https://github.com/vectorized/solady

@@ -105,7 +105,14 @@ contract Tribunal {
         payable
         returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount)
     {
-        return _fill(claim, mandate, claimant);
+        return _fill(
+            claim.chainId,
+            claim.compact,
+            claim.sponsorSignature,
+            claim.allocatorSignature,
+            mandate,
+            claimant
+        );
     }
 
     /**
@@ -120,7 +127,14 @@ contract Tribunal {
         view
         returns (uint256 dispensation)
     {
-        return _quote(claim, mandate, claimant);
+        return _quote(
+            claim.chainId,
+            claim.compact,
+            claim.sponsorSignature,
+            claim.allocatorSignature,
+            mandate,
+            claimant
+        );
     }
 
     /**
@@ -155,7 +169,7 @@ contract Tribunal {
      * @param mandate The mandate containing all hash parameters
      * @return The derived mandate hash
      */
-    function deriveMandateHash(Mandate memory mandate) public view returns (bytes32) {
+    function deriveMandateHash(Mandate calldata mandate) public view returns (bytes32) {
         return keccak256(
             abi.encode(
                 MANDATE_TYPEHASH,
@@ -174,11 +188,11 @@ contract Tribunal {
 
     /**
      * @dev Derives the claim hash from compact and mandate hash
-     * @param claim The claim parameters
+     * @param compact The compact parameters
      * @param mandateHash The derived mandate hash
      * @return The claim hash
      */
-    function deriveClaimHash(Claim memory claim, bytes32 mandateHash)
+    function deriveClaimHash(Compact calldata compact, bytes32 mandateHash)
         public
         pure
         returns (bytes32)
@@ -186,12 +200,12 @@ contract Tribunal {
         return keccak256(
             abi.encode(
                 COMPACT_TYPEHASH_WITH_MANDATE,
-                claim.compact.arbiter,
-                claim.compact.sponsor,
-                claim.compact.nonce,
-                claim.compact.expires,
-                claim.compact.id,
-                claim.compact.amount,
+                compact.arbiter,
+                compact.sponsor,
+                compact.nonce,
+                compact.expires,
+                compact.id,
+                compact.amount,
                 mandateHash
             )
         );
@@ -237,10 +251,14 @@ contract Tribunal {
         return (fillAmount, claimAmount);
     }
 
-    function _fill(Claim memory claim, Mandate memory mandate, address claimant)
-        internal
-        returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount)
-    {
+    function _fill(
+        uint256 chainId,
+        Compact calldata compact,
+        bytes calldata sponsorSignature,
+        bytes calldata allocatorSignature,
+        Mandate calldata mandate,
+        address claimant
+    ) internal returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount) {
         // Ensure that the mandate has not expired.
         mandate.expires.later();
 
@@ -248,7 +266,7 @@ contract Tribunal {
         mandateHash = deriveMandateHash(mandate);
 
         // Derive and check claim hash
-        bytes32 claimHash = deriveClaimHash(claim, mandateHash);
+        bytes32 claimHash = deriveClaimHash(compact, mandateHash);
         if (_dispositions[claimHash]) {
             revert AlreadyClaimed();
         }
@@ -256,7 +274,7 @@ contract Tribunal {
 
         // Derive fill and claim amounts.
         (fillAmount, claimAmount) = deriveAmounts(
-            claim.compact.amount,
+            compact.amount,
             mandate.minimumAmount,
             mandate.baselinePriorityFee,
             mandate.scalingFactor
@@ -273,10 +291,18 @@ contract Tribunal {
         }
 
         // Emit the fill event.
-        emit Fill(claim.compact.sponsor, claimant, claimHash, fillAmount, claimAmount);
+        emit Fill(compact.sponsor, claimant, claimHash, fillAmount, claimAmount);
 
         // Process the directive.
-        _processDirective(claim, mandateHash, claimant, claimAmount);
+        _processDirective(
+            chainId,
+            compact,
+            sponsorSignature,
+            allocatorSignature,
+            mandateHash,
+            claimant,
+            claimAmount
+        );
 
         // Return any unused native tokens to the caller.
         uint256 remaining = address(this).balance;
@@ -285,11 +311,14 @@ contract Tribunal {
         }
     }
 
-    function _quote(Claim memory claim, Mandate memory mandate, address claimant)
-        internal
-        view
-        returns (uint256 dispensation)
-    {
+    function _quote(
+        uint256 chainId,
+        Compact calldata compact,
+        bytes calldata sponsorSignature,
+        bytes calldata allocatorSignature,
+        Mandate calldata mandate,
+        address claimant
+    ) internal view returns (uint256 dispensation) {
         // Ensure that the mandate has not expired.
         mandate.expires.later();
 
@@ -297,21 +326,29 @@ contract Tribunal {
         bytes32 mandateHash = deriveMandateHash(mandate);
 
         // Derive and check claim hash
-        bytes32 claimHash = deriveClaimHash(claim, mandateHash);
+        bytes32 claimHash = deriveClaimHash(compact, mandateHash);
         if (_dispositions[claimHash]) {
             revert AlreadyClaimed();
         }
 
         // Derive fill and claim amounts.
         (, uint256 claimAmount) = deriveAmounts(
-            claim.compact.amount,
+            compact.amount,
             mandate.minimumAmount,
             mandate.baselinePriorityFee,
             mandate.scalingFactor
         );
 
         // Process the quote.
-        dispensation = _quoteDirective(claim, mandateHash, claimant, claimAmount);
+        dispensation = _quoteDirective(
+            chainId,
+            compact,
+            sponsorSignature,
+            allocatorSignature,
+            mandateHash,
+            claimant,
+            claimAmount
+        );
     }
 
     /**
@@ -337,13 +374,19 @@ contract Tribunal {
 
     /**
      * @dev Process the directive for token claims
-     * @param claim The claim parameters
+     * @param chainId The claim chain where the resource lock is held
+     * @param compact The compact parameters
+     * @param sponsorSignature The signature of the sponsor
+     * @param allocatorSignature The signature of the allocator
      * @param mandateHash The derived mandate hash
      * @param claimant The recipient of claimed tokens on claim chain
      * @param claimAmount The amount to claim
      */
     function _processDirective(
-        Claim memory claim,
+        uint256 chainId,
+        Compact calldata compact,
+        bytes calldata sponsorSignature,
+        bytes calldata allocatorSignature,
         bytes32 mandateHash,
         address claimant,
         uint256 claimAmount
@@ -354,19 +397,28 @@ contract Tribunal {
     /**
      * @dev Derive the quote for the dispensation required for
      * the directive for token claims
-     * @param claim The claim parameters
+     * @param chainId The claim chain where the resource lock is held
+     * @param compact The compact parameters
+     * @param sponsorSignature The signature of the sponsor
+     * @param allocatorSignature The signature of the allocator
      * @param mandateHash The derived mandate hash
      * @param claimant The address of the claimant
      * @param claimAmount The amount to claim
      * @return dispensation The quoted dispensation amount
      */
     function _quoteDirective(
-        Claim memory claim,
+        uint256 chainId,
+        Compact calldata compact,
+        bytes calldata sponsorSignature,
+        bytes calldata allocatorSignature,
         bytes32 mandateHash,
         address claimant,
         uint256 claimAmount
     ) internal view virtual returns (uint256 dispensation) {
-        claim;
+        chainId;
+        compact;
+        sponsorSignature;
+        allocatorSignature;
         mandateHash;
         claimant;
         claimAmount;
