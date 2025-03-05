@@ -74,17 +74,9 @@ contract ERC7683Tribunal is Tribunal, IDestinationSettler {
         // filler data should also have at least one word for claimant with no dirty bits
         assembly ("memory-safe") {
             if or(
-                or(
-                    lt(originData.length, 0x260),
-                    xor(calldataload(originData.offset), 0x100)
-                ),
-                or(
-                    lt(fillerData.length, 0x20),
-                    shr(calldataload(fillerData.offset), 0xa0)
-                )
-            ) {
-                revert(0, 0)
-            }
+                or(lt(originData.length, 0x260), xor(calldataload(originData.offset), 0x100)),
+                or(lt(fillerData.length, 0x20), shr(calldataload(fillerData.offset), 0xa0))
+            ) { revert(0, 0) }
         }
 
         // Get the claim encoded as a bytes array with bounds checks

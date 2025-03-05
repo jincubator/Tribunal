@@ -258,10 +258,7 @@ contract Tribunal {
         bytes calldata allocatorSignature,
         Mandate calldata mandate,
         address claimant
-    )
-        internal
-        returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount)
-    {
+    ) internal returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount) {
         // Ensure that the mandate has not expired.
         mandate.expires.later();
 
@@ -297,7 +294,15 @@ contract Tribunal {
         emit Fill(compact.sponsor, claimant, claimHash, fillAmount, claimAmount);
 
         // Process the directive.
-        _processDirective(chainId, compact, sponsorSignature, allocatorSignature, mandateHash, claimant, claimAmount);
+        _processDirective(
+            chainId,
+            compact,
+            sponsorSignature,
+            allocatorSignature,
+            mandateHash,
+            claimant,
+            claimAmount
+        );
 
         // Return any unused native tokens to the caller.
         uint256 remaining = address(this).balance;
@@ -313,11 +318,7 @@ contract Tribunal {
         bytes calldata allocatorSignature,
         Mandate calldata mandate,
         address claimant
-    )
-        internal
-        view
-        returns (uint256 dispensation)
-    {
+    ) internal view returns (uint256 dispensation) {
         // Ensure that the mandate has not expired.
         mandate.expires.later();
 
@@ -339,7 +340,15 @@ contract Tribunal {
         );
 
         // Process the quote.
-        dispensation = _quoteDirective(chainId, compact, sponsorSignature, allocatorSignature, mandateHash, claimant, claimAmount);
+        dispensation = _quoteDirective(
+            chainId,
+            compact,
+            sponsorSignature,
+            allocatorSignature,
+            mandateHash,
+            claimant,
+            claimAmount
+        );
     }
 
     /**
