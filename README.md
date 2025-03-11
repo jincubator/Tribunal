@@ -2,76 +2,75 @@
 
 **Tribunal** is a framework for processing cross-chain swap settlements against PGA (priority gas auction) blockchains. It ensures that tokens are transferred according to the mandate specified by the originating sponsor and enforces that a single party is able to perform the settlement in the event of a dispute.
 
-To settle a cross-chain swap, the filler submits a "petition" to the Tribunal contract. This consists of three core components:
-1. **Compact**: Defines the claim parameters and constraints specified by the sponsor.
+To settle a cross-chain swap, the filler submits a "fill" request to the Tribunal contract. This consists of three core components:
+1. **Claim**: Contains the chain ID of a Compact, its parameters, and its signatures.
 2. **Mandate**: Specifies settlement conditions and amount derivation parameters specified by the sponsor.
-3. **Directive**: Contains execution details provided by the filler including claimant and dispensation.
+3. **Claimant**: Specifies the account that will receive the claimed tokens.
 
-> Note for cross-chain message protocols integrating with Tribunal: inherit the `Tribunal` contract and override the `_processDirective` and `_quoteDirective` functions to implement the relevant directive processing logic for passing a message to the arbiter on the claim chain (or ensure that the necessary state is updated to allow for the arbiter to "pull" the message themselves).
+> Note for cross-chain message protocols integrating with Tribunal: inherit the `Tribunal` contract and override the `_processDirective` and `_quoteDirective` functions to implement the relevant directive processing logic for passing a message to the arbiter on the claim chain (or ensure that the necessary state is updated to allow for the arbiter to "pull" the message themselves). An ERC7683-compatible implementation is provided in `ERC7683Tribunal.sol`.
 
 ### Core Components
+
+#### Claim Structure
+```solidity
+struct Claim {
+    uint256 chainId;          // Claim processing chain ID
+    Compact compact;          // The compact parameters
+    bytes sponsorSignature;   // Authorization from the sponsor
+    bytes allocatorSignature; // Authorization from the allocator
+}
+```
 
 #### Compact Structure
 ```solidity
 struct Compact {
-    uint256 chainId;          // Claim processing chain ID
-    address arbiter;          // Claim verification account
-    address sponsor;          // Token source account
-    uint256 nonce;            // Replay protection parameter
-    uint256 expires;          // Claim expiration timestamp
-    uint256 id;               // Claimed ERC6909 token ID
-    uint256 maxAmount;        // Maximum claimable tokens
-    bytes sponsorSignature;   // Authorization from the sponsor
-    bytes allocatorSignature; // Authorization from the allocator
+    address arbiter;          // The account tasked with verifying and submitting the claim
+    address sponsor;          // The account to source the tokens from
+    uint256 nonce;            // A parameter to enforce replay protection, scoped to allocator
+    uint256 expires;          // The time at which the claim expires
+    uint256 id;               // The token ID of the ERC6909 token to allocate
+    uint256 amount;           // The amount of ERC6909 tokens to allocate
 }
 ```
 
 #### Mandate Structure
 ```solidity
 struct Mandate {
-    address recipient;           // Recipient of settled tokens
+    address recipient;           // Recipient of filled tokens
     uint256 expires;             // Mandate expiration timestamp
-    address token;               // Settlement token (address(0) for native)
-    uint256 minimumAmount;       // Minimum settlement amount
+    address token;               // Fill token (address(0) for native)
+    uint256 minimumAmount;       // Minimum fill amount
     uint256 baselinePriorityFee; // Base fee threshold where scaling kicks in
     uint256 scalingFactor;       // Fee scaling multiplier (1e18 baseline)
     bytes32 salt;                // Preimage resistance parameter
 }
 ```
 
-#### Directive Structure
-```solidity
-struct Directive {
-    address claimant;     // Recipient of claimed tokens
-    uint256 dispensation; // Cross-chain message layer payment
-}
-```
-
 ### Process Flow
 
-1. Fillers initiate by calling `petition(Compact calldata compact, Mandate calldata mandate, Directive calldata directive)` and providing any msg.value required for the settlement and the dispensation to pay to process the cross-chain message.
+1. Fillers initiate by calling `fill(Claim calldata claim, Mandate calldata mandate, address claimant)` and providing any msg.value required for the settlement to pay to process the cross-chain message.
 2. Tribunal verifies that the mandate has not expired by checking the mandate's `expires` timestamp
 3. Computation phase:
    - Derives `mandateHash` using an EIP712 typehash for the mandate, destination chainId, tribunal address, and mandate data
    - Derives `claimHash` using an EIP712 typehash for the compact with the mandate as a witness and the compact data including the `mandateHash`
-   - Ensures that the `claimHash` has not already been used and marks it as disposed
-   - Calculates `settlementAmount` and `claimAmount` based on:
-     - Compact `maxAmount`
+   - Ensures that the `claimHash` has not already been used and marks it as filled
+   - Calculates `fillAmount` and `claimAmount` based on:
+     - Compact `amount`
      - Mandate parameters (`minimumAmount`, `baselinePriorityFee`, `scalingFactor`)
      - `tx.gasprice` and `block.basefee`
-     - NOTE: `scalingFactor` will result in an increased `settlementAmount` if `> 1e18` or a decreased `claimAmount` if `< 1e18`
+     - NOTE: `scalingFactor` will result in an increased `fillAmount` if `> 1e18` or a decreased `claimAmount` if `< 1e18`
      - NOTE: `scalingFactor` is combined with `tx.gasprice - (block.basefee + baselinePriorityFee)` (or 0 if it would otherwise be negative) before being applied to the amount
 4. Execution phase:
-   - Transfers `settlementAmount` of `token` to mandate `recipient`
-   - Processes directive via `_processDirective(compact, mandateHash, directive, claimAmount)`
+   - Transfers `fillAmount` of `token` to mandate `recipient`
+   - Processes directive via `_processDirective(chainId, compact, sponsorSignature, allocatorSignature, mandateHash, claimant, claimAmount)`
 
 There are also a few view functions:
- - `quote(Compact calldata compact, Mandate calldata mandate, Directive calldata directive)` will suggest a dispensation amount (function of gas on claim chain + any additional "protocol overhead" if using push-based cross-chain messaging)
- - `disposition(bytes32 claimHash)` will check if a given claim hash has already been disposed (used)
+ - `quote(Claim calldata claim, Mandate calldata mandate, address claimant)` will suggest a dispensation amount (function of gas on claim chain + any additional "protocol overhead" if using push-based cross-chain messaging)
+ - `filled(bytes32 claimHash)` will check if a given claim hash has already been filled (used)
  - `getCompactWitnessDetails()` will return the Mandate witness typestring and that correlates token + amount arguments (so frontends can show context about the token and use decimal inputs)
  - `deriveMandateHash(Mandate calldata mandate)` will return the EIP712 typehash for the mandate
  - `deriveClaimHash(Compact calldata compact, bytes32 mandateHash)` will return the unique claim hash for a compact and mandate combination
- - `getSettlementAmount(Compact calldata compact, Mandate calldata mandate)` will return the settlement amount based on the compact and mandate; the base fee and priority fee will be applied to the amount and so should be tuned in the call appropriately
+ - `deriveAmounts(uint256 maximumAmount, uint256 minimumAmount, uint256 baselinePriorityFee, uint256 scalingFactor)` will return the fill and claim amounts based on the parameters; the base fee and priority fee will be applied to the amount and so should be tuned in the call appropriately
 
 #### Mandate EIP-712 Typehash
 This is what swappers will see as their witness data when signing a `Compact`:
@@ -89,11 +88,22 @@ struct Mandate {
 }
 ```
 
+### ERC7683 Integration
+
+The `ERC7683Tribunal` contract implements the `IDestinationSettler` interface from ERC7683, allowing for standardized cross-chain settlement:
+
+```solidity
+interface IDestinationSettler {
+    function fill(bytes32 orderId, bytes calldata originData, bytes calldata fillerData) external;
+}
+```
+
+This implementation allows the Tribunal to be used with any ERC7683-compatible cross-chain messaging system.
+
 ## Remaining Work
 - [ ] Create CI/CD pipeline
 - [ ] Implement directive processing with cross-chain messaging
-- [ ] Implement quote function for gas estimation
-- [ ] Implement getCompactWitnessDetails for frontend integration
+- [ ] Improve quote function for gas estimation
 - [ ] Set up comprehensive test suite
 - [ ] Add tests for fee-on-transfer tokens
 - [ ] Add tests for quote function
@@ -105,7 +115,7 @@ struct Mandate {
 ## Test Cases
 
 ### Core Functionality
-- [X] Petition submission
+- [X] Fill submission
 - [X] Claim hash derivation
 - [X] Expiration checking
 - [X] Hash derivation
@@ -138,9 +148,9 @@ struct Mandate {
 Reentrancy protection is not needed in the current design as it follows the checks-effects-interactions pattern and never holds tokens. The contract consumes nonces before any external calls and uses a pull pattern for token transfers.
 
 ### Fee-on-Transfer Token Handling
-Swappers must handle fee-on-transfer tokens carefully, as settlement will result in fewer tokens being received by the recipient than the specified settlement amount. When providing settlement amounts for such tokens:
+Swappers must handle fee-on-transfer tokens carefully, as settlement will result in fewer tokens being received by the recipient than the specified fill amount. When providing fill amounts for such tokens:
 - Swappers must account for the token's transfer fee in their calculations
-- The actual received amount will be less than the specified settlement amount
+- The actual received amount will be less than the specified fill amount
 - Frontend implementations should display appropriate warnings
 - Consider implementing additional safety checks or multipliers (though this also complicates matters for fillers)
 
