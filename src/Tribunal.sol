@@ -115,7 +115,8 @@ contract Tribunal {
             claim.sponsorSignature,
             claim.allocatorSignature,
             mandate,
-            claimant
+            claimant,
+            false
         );
     }
 
@@ -129,11 +130,12 @@ contract Tribunal {
      * @return fillAmount The amount of tokens to be filled.
      * @return claimAmount The amount of tokens to be claimed.
      */
-    function fill(Claim calldata claim, Mandate calldata mandate, address claimant, uint256 targetBlock)
-        external
-        payable
-        returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount)
-    {
+    function fill(
+        Claim calldata claim,
+        Mandate calldata mandate,
+        address claimant,
+        uint256 targetBlock
+    ) external payable returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount) {
         if (block.number != targetBlock) {
             revert InvalidTargetBlock(block.number, targetBlock);
         }
@@ -144,7 +146,8 @@ contract Tribunal {
             claim.sponsorSignature,
             claim.allocatorSignature,
             mandate,
-            claimant
+            claimant,
+            true
         );
     }
 
@@ -292,6 +295,7 @@ contract Tribunal {
      * @param allocatorSignature The signature of the allocator.
      * @param mandate The fill conditions and amount derivation parameters.
      * @param claimant The recipient of claimed tokens on the claim chain.
+     * @param onTarget Whether the fill was completed as of a specific target block.
      * @return mandateHash The derived mandate hash.
      * @return fillAmount The amount of tokens to be filled.
      * @return claimAmount The amount of tokens to be claimed.
@@ -302,7 +306,8 @@ contract Tribunal {
         bytes calldata sponsorSignature,
         bytes calldata allocatorSignature,
         Mandate calldata mandate,
-        address claimant
+        address claimant,
+        bool onTarget
     ) internal returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount) {
         // Ensure that the mandate has not expired.
         mandate.expires.later();
@@ -346,7 +351,8 @@ contract Tribunal {
             allocatorSignature,
             mandateHash,
             claimant,
-            claimAmount
+            claimAmount,
+            onTarget
         );
 
         // Return any unused native tokens to the caller.
@@ -402,7 +408,8 @@ contract Tribunal {
             allocatorSignature,
             mandateHash,
             claimant,
-            claimAmount
+            claimAmount,
+            false
         );
     }
 
@@ -436,6 +443,7 @@ contract Tribunal {
      * @param mandateHash The derived mandate hash.
      * @param claimant The recipient of claimed tokens on claim chain.
      * @param claimAmount The amount to claim.
+     * @param onTarget Whether the fill was completed as of a specific target block.
      */
     function _processDirective(
         uint256 chainId,
@@ -444,7 +452,8 @@ contract Tribunal {
         bytes calldata allocatorSignature,
         bytes32 mandateHash,
         address claimant,
-        uint256 claimAmount
+        uint256 claimAmount,
+        bool onTarget
     ) internal virtual {
         // NOTE: Override & implement directive processing.
     }
@@ -459,6 +468,7 @@ contract Tribunal {
      * @param claimant The address of the claimant.
      * @param claimAmount The amount to claim.
      * @return dispensation The quoted dispensation amount.
+     * @param onTarget Whether the fill was completed as of a specific target block.
      */
     function _quoteDirective(
         uint256 chainId,
@@ -467,7 +477,8 @@ contract Tribunal {
         bytes calldata allocatorSignature,
         bytes32 mandateHash,
         address claimant,
-        uint256 claimAmount
+        uint256 claimAmount,
+        bool onTarget
     ) internal view virtual returns (uint256 dispensation) {
         chainId;
         compact;
@@ -476,6 +487,7 @@ contract Tribunal {
         mandateHash;
         claimant;
         claimAmount;
+        onTarget;
 
         // NOTE: Override & implement quote logic.
         return msg.sender.balance / 1000;
