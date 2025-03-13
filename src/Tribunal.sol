@@ -116,7 +116,7 @@ contract Tribunal {
             claim.allocatorSignature,
             mandate,
             claimant,
-            false
+            uint256(0)
         );
     }
 
@@ -147,7 +147,7 @@ contract Tribunal {
             claim.allocatorSignature,
             mandate,
             claimant,
-            true
+            targetBlock
         );
     }
 
@@ -295,7 +295,7 @@ contract Tribunal {
      * @param allocatorSignature The signature of the allocator.
      * @param mandate The fill conditions and amount derivation parameters.
      * @param claimant The recipient of claimed tokens on the claim chain.
-     * @param onTarget Whether the fill was completed as of a specific target block.
+     * @param targetBlock The targeted fill block, or 0 for no target block.
      * @return mandateHash The derived mandate hash.
      * @return fillAmount The amount of tokens to be filled.
      * @return claimAmount The amount of tokens to be claimed.
@@ -307,7 +307,7 @@ contract Tribunal {
         bytes calldata allocatorSignature,
         Mandate calldata mandate,
         address claimant,
-        bool onTarget
+        uint256 targetBlock
     ) internal returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount) {
         // Ensure that the mandate has not expired.
         mandate.expires.later();
@@ -352,7 +352,7 @@ contract Tribunal {
             mandateHash,
             claimant,
             claimAmount,
-            onTarget
+            targetBlock
         );
 
         // Return any unused native tokens to the caller.
@@ -409,7 +409,7 @@ contract Tribunal {
             mandateHash,
             claimant,
             claimAmount,
-            false
+            block.number
         );
     }
 
@@ -443,7 +443,7 @@ contract Tribunal {
      * @param mandateHash The derived mandate hash.
      * @param claimant The recipient of claimed tokens on claim chain.
      * @param claimAmount The amount to claim.
-     * @param onTarget Whether the fill was completed as of a specific target block.
+     * @param targetBlock The targeted fill block, or 0 for no target block.
      */
     function _processDirective(
         uint256 chainId,
@@ -453,7 +453,7 @@ contract Tribunal {
         bytes32 mandateHash,
         address claimant,
         uint256 claimAmount,
-        bool onTarget
+        uint256 targetBlock
     ) internal virtual {
         // NOTE: Override & implement directive processing.
     }
@@ -468,7 +468,7 @@ contract Tribunal {
      * @param claimant The address of the claimant.
      * @param claimAmount The amount to claim.
      * @return dispensation The quoted dispensation amount.
-     * @param onTarget Whether the fill was completed as of a specific target block.
+     * @param targetBlock The targeted fill block, or 0 for no target block.
      */
     function _quoteDirective(
         uint256 chainId,
@@ -478,7 +478,7 @@ contract Tribunal {
         bytes32 mandateHash,
         address claimant,
         uint256 claimAmount,
-        bool onTarget
+        uint256 targetBlock
     ) internal view virtual returns (uint256 dispensation) {
         chainId;
         compact;
@@ -487,7 +487,7 @@ contract Tribunal {
         mandateHash;
         claimant;
         claimAmount;
-        onTarget;
+        targetBlock;
 
         // NOTE: Override & implement quote logic.
         return msg.sender.balance / 1000;

@@ -29,7 +29,9 @@ contract ERC7683Tribunal is Tribunal, IDestinationSettler {
             address claimant
         ) = _parseCalldata(originData, fillerData);
 
-        _fill(chainId, compact, sponsorSignature, allocatorSignature, mandate, claimant, false);
+        _fill(
+            chainId, compact, sponsorSignature, allocatorSignature, mandate, claimant, block.number
+        );
     }
 
     /**
@@ -79,7 +81,7 @@ contract ERC7683Tribunal is Tribunal, IDestinationSettler {
             address claimant
         )
     {
-        /**
+        /*
          * Need 19 words in originData at minimum:
          *  - 1 word for offset to claim (dynamic struct).
          *  - 7 words for mandate (fixed struct).
