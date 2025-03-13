@@ -31,6 +31,7 @@ contract Tribunal {
     // ======== Custom Errors ========
     error InvalidGasPrice();
     error AlreadyClaimed();
+    error InvalidTargetBlock(uint256 blockNumber, uint256 targetBlockNumber);
 
     // ======== Type Declarations ========
 
@@ -108,6 +109,35 @@ contract Tribunal {
         payable
         returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount)
     {
+        return _fill(
+            claim.chainId,
+            claim.compact,
+            claim.sponsorSignature,
+            claim.allocatorSignature,
+            mandate,
+            claimant
+        );
+    }
+
+    /**
+     * @notice Attempt to fill a cross-chain swap at a specific block number.
+     * @param claim The claim parameters and constraints.
+     * @param mandate The fill conditions and amount derivation parameters.
+     * @param claimant The recipient of claimed tokens on the claim chain.
+     * @param targetBlock The block number to target for the fill.
+     * @return mandateHash The derived mandate hash.
+     * @return fillAmount The amount of tokens to be filled.
+     * @return claimAmount The amount of tokens to be claimed.
+     */
+    function fill(Claim calldata claim, Mandate calldata mandate, address claimant, uint256 targetBlock)
+        external
+        payable
+        returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount)
+    {
+        if (block.number != targetBlock) {
+            revert InvalidTargetBlock(block.number, targetBlock);
+        }
+
         return _fill(
             claim.chainId,
             claim.compact,
