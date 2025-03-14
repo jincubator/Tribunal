@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import {ValidityLib} from "the-compact/src/lib/ValidityLib.sol";
 import {FixedPointMathLib} from "the-compact/lib/solady/src/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "the-compact/lib/solady/src/utils/SafeTransferLib.sol";
+import {BlockNumberish} from "./BlockNumberish.sol";
 
 /**
  * @title Tribunal
@@ -13,7 +14,7 @@ import {SafeTransferLib} from "the-compact/lib/solady/src/utils/SafeTransferLib.
  * and enforces that a single party is able to perform the fill in the event of a dispute.
  * @dev This contract is under active development; contributions, reviews, and feedback are greatly appreciated.
  */
-contract Tribunal {
+contract Tribunal is BlockNumberish {
     // ======== Libraries ========
     using ValidityLib for uint256;
     using FixedPointMathLib for uint256;
@@ -136,8 +137,9 @@ contract Tribunal {
         address claimant,
         uint256 targetBlock
     ) external payable returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount) {
-        if (block.number != targetBlock) {
-            revert InvalidTargetBlock(block.number, targetBlock);
+        uint256 blockNumberish = _getBlockNumberish();
+        if (blockNumberish != targetBlock) {
+            revert InvalidTargetBlock(blockNumberish, targetBlock);
         }
 
         return _fill(
@@ -409,7 +411,7 @@ contract Tribunal {
             mandateHash,
             claimant,
             claimAmount,
-            block.number
+            _getBlockNumberish()
         );
     }
 

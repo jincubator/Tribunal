@@ -30,7 +30,13 @@ contract ERC7683Tribunal is Tribunal, IDestinationSettler {
         ) = _parseCalldata(originData, fillerData);
 
         _fill(
-            chainId, compact, sponsorSignature, allocatorSignature, mandate, claimant, block.number
+            chainId,
+            compact,
+            sponsorSignature,
+            allocatorSignature,
+            mandate,
+            claimant,
+            _getBlockNumberish()
         );
     }
 
