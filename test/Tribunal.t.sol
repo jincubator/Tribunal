@@ -17,12 +17,12 @@ contract TribunalTest is Test {
 
     // Mandate type string
     string constant MANDATE_TYPESTRING =
-        "Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)";
+        "Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,uint256[] decayCurve,bytes32 salt)";
     bytes32 constant MANDATE_TYPEHASH = keccak256(bytes(MANDATE_TYPESTRING));
 
     // Compact type string with mandate witness
     string constant COMPACT_TYPESTRING_WITH_MANDATE =
-        "Compact(address arbiter,address sponsor,uint256 nonce,uint256 expires,uint256 id,uint256 amount,Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,bytes32 salt)";
+        "Compact(address arbiter,address sponsor,uint256 nonce,uint256 expires,uint256 id,uint256 amount,Mandate mandate)Mandate(uint256 chainId,address tribunal,address recipient,uint256 expires,address token,uint256 minimumAmount,uint256 baselinePriorityFee,uint256 scalingFactor,uint256[] decayCurve,bytes32 salt)";
     bytes32 constant COMPACT_TYPEHASH_WITH_MANDATE =
         keccak256(bytes(COMPACT_TYPESTRING_WITH_MANDATE));
 
