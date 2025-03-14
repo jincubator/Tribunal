@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {ValidityLib} from "the-compact/src/lib/ValidityLib.sol";
+import {EfficiencyLib} from "the-compact/src/lib/EfficiencyLib.sol";
 import {FixedPointMathLib} from "the-compact/lib/solady/src/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "the-compact/lib/solady/src/utils/SafeTransferLib.sol";
 import {BlockNumberish} from "./BlockNumberish.sol";
@@ -19,6 +20,7 @@ contract Tribunal is BlockNumberish {
     using ValidityLib for uint256;
     using FixedPointMathLib for uint256;
     using SafeTransferLib for address;
+    using EfficiencyLib for bool;
 
     // ======== Events ========
     event Fill(
@@ -26,7 +28,8 @@ contract Tribunal is BlockNumberish {
         address indexed claimant,
         bytes32 claimHash,
         uint256 fillAmount,
-        uint256 claimAmount
+        uint256 claimAmount,
+        uint256 targetBlock
     );
 
     // ======== Custom Errors ========
@@ -61,6 +64,7 @@ contract Tribunal is BlockNumberish {
         uint256 minimumAmount; // Minimum fill amount.
         uint256 baselinePriorityFee; // Base fee threshold where scaling kicks in.
         uint256 scalingFactor; // Fee scaling multiplier (1e18 baseline).
+        uint256[] decayCurve; // Block durations, fill increases, & claim decreases.
         bytes32 salt; // Replay protection parameter.
     }
 
@@ -219,6 +223,7 @@ contract Tribunal is BlockNumberish {
                 mandate.minimumAmount,
                 mandate.baselinePriorityFee,
                 mandate.scalingFactor,
+                keccak256(abi.encodePacked(mandate.decayCurve)),
                 mandate.salt
             )
         );
@@ -267,8 +272,8 @@ contract Tribunal is BlockNumberish {
         // Get the priority fee above baseline.
         uint256 priorityFeeAboveBaseline = _getPriorityFee(baselinePriorityFee);
 
-        // If no fee above baseline, return original amounts.
-        if (priorityFeeAboveBaseline == 0) {
+        // If no fee above baseline or no scaling factor, return original amounts.
+        if ((priorityFeeAboveBaseline == 0).or(scalingFactor == 1e18)) {
             return (minimumAmount, maximumAmount);
         }
 
@@ -343,7 +348,7 @@ contract Tribunal is BlockNumberish {
         }
 
         // Emit the fill event.
-        emit Fill(compact.sponsor, claimant, claimHash, fillAmount, claimAmount);
+        emit Fill(compact.sponsor, claimant, claimHash, fillAmount, claimAmount, targetBlock);
 
         // Process the directive.
         _processDirective(
