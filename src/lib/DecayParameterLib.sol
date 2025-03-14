@@ -104,7 +104,7 @@ library DecayParameterLib {
      * @return currentFillIncrease The current fill increase value
      * @return currentClaimDecrease The current claim decrease value
      */
-    function getCalculatedValues(DecayParameter[] calldata parameters, uint256 blocksPassed)
+    function getCalculatedValues(uint256[] calldata parameters, uint256 blocksPassed)
         internal
         pure
         returns (uint256 currentFillIncrease, uint256 currentClaimDecrease)
@@ -115,14 +115,13 @@ library DecayParameterLib {
         }
 
         uint256 blocksCounted = 0;
-        uint256 lastNonZeroIndex = 0;
         bool hasPassedZeroDuration = false;
 
         // Process each parameter segment in a single pass
         for (uint256 i = 0; i < parameters.length; i++) {
             // Extract values from current parameter
             (uint256 duration, uint256 fillIncrease, uint256 claimDecrease) =
-                getComponents(parameters[i]);
+                getComponents(DecayParameter.wrap(parameters[i]));
 
             // Special handling for zero duration
             if (duration == 0) {
@@ -143,58 +142,44 @@ library DecayParameterLib {
                 continue;
             }
 
-            // Record this as the last non-zero segment for later reference
-            lastNonZeroIndex = i;
-
             // If blocksPassed is in this segment
             if (blocksPassed < blocksCounted + duration) {
                 // For regular segments, we need to handle based on whether we've passed a zero duration
-                if (hasPassedZeroDuration && i > 0 && getBlockDuration(parameters[i - 1]) == 0) {
+                if (
+                    hasPassedZeroDuration && i > 0
+                        && getBlockDuration(DecayParameter.wrap(parameters[i - 1])) == 0
+                ) {
                     // We're in a segment right after a zero duration - start interpolation from zero duration values
                     (, uint256 zeroDurationFill, uint256 zeroDurationClaim) =
-                        getComponents(parameters[i - 1]);
+                        getComponents(DecayParameter.wrap(parameters[i - 1]));
 
-                    uint256 segmentOffset = blocksPassed - blocksCounted;
+                    // Interpolate from zero duration values to current segment values
+                    currentFillIncrease = _locateCurrentAmount(
+                        zeroDurationFill,
+                        fillIncrease,
+                        blocksCounted,
+                        blocksPassed,
+                        blocksCounted + duration,
+                        true // Round up for fillIncrease
+                    );
 
-                    // Calculate how far we are into this segment (as a percentage)
-                    uint256 progress = (segmentOffset * 100) / duration;
-
-                    // Special interpolation from zero duration to current segment end
-                    // For fill increase: we go from zeroDurationFill to fillIncrease
-                    if (zeroDurationFill <= fillIncrease) {
-                        // Increasing: zeroDurationFill → fillIncrease
-                        currentFillIncrease = zeroDurationFill
-                            + ((fillIncrease - zeroDurationFill) * progress + 99) / 100; // Round up
-                    } else {
-                        // Decreasing: zeroDurationFill → fillIncrease
-                        currentFillIncrease =
-                            zeroDurationFill - ((zeroDurationFill - fillIncrease) * progress) / 100; // Round down
-                    }
-
-                    // For claim decrease: we go from zeroDurationClaim to claimDecrease
-                    if (zeroDurationClaim <= claimDecrease) {
-                        // Increasing: zeroDurationClaim → claimDecrease
-                        currentClaimDecrease = zeroDurationClaim
-                            + ((claimDecrease - zeroDurationClaim) * progress) / 100; // Round down
-                    } else {
-                        // Decreasing: zeroDurationClaim → claimDecrease
-                        currentClaimDecrease = zeroDurationClaim
-                            - ((zeroDurationClaim - claimDecrease) * progress + 99) / 100; // Round up for subtraction
-                    }
-
-                    return (currentFillIncrease, currentClaimDecrease);
+                    currentClaimDecrease = _locateCurrentAmount(
+                        zeroDurationClaim,
+                        claimDecrease,
+                        blocksCounted,
+                        blocksPassed,
+                        blocksCounted + duration,
+                        false // Round down for claimDecrease
+                    );
                 } else {
                     // Standard interpolation between current and next segment
-                    uint256 segmentStart = blocksCounted;
-                    uint256 segmentEnd = blocksCounted + duration;
-
-                    // Calculate target values for interpolation
                     uint256 endFillIncrease;
                     uint256 endClaimDecrease;
 
                     if (i + 1 < parameters.length) {
                         // Next segment determines the target values
-                        (, endFillIncrease, endClaimDecrease) = getComponents(parameters[i + 1]);
+                        (, endFillIncrease, endClaimDecrease) =
+                            getComponents(DecayParameter.wrap(parameters[i + 1]));
                     } else {
                         // Last segment ends at zero
                         endFillIncrease = 0;
@@ -205,23 +190,23 @@ library DecayParameterLib {
                     currentFillIncrease = _locateCurrentAmount(
                         fillIncrease,
                         endFillIncrease,
-                        segmentStart,
+                        blocksCounted,
                         blocksPassed,
-                        segmentEnd,
+                        blocksCounted + duration,
                         true // Round up for fillIncrease
                     );
 
                     currentClaimDecrease = _locateCurrentAmount(
                         claimDecrease,
                         endClaimDecrease,
-                        segmentStart,
+                        blocksCounted,
                         blocksPassed,
-                        segmentEnd,
+                        blocksCounted + duration,
                         false // Round down for claimDecrease
                     );
-
-                    return (currentFillIncrease, currentClaimDecrease);
                 }
+
+                return (currentFillIncrease, currentClaimDecrease);
             }
 
             // We've passed this segment, update our tracking

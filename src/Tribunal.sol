@@ -6,6 +6,7 @@ import {EfficiencyLib} from "the-compact/src/lib/EfficiencyLib.sol";
 import {FixedPointMathLib} from "the-compact/lib/solady/src/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "the-compact/lib/solady/src/utils/SafeTransferLib.sol";
 import {BlockNumberish} from "./BlockNumberish.sol";
+import {DecayParameterLib} from "./lib/DecayParameterLib.sol";
 
 /**
  * @title Tribunal
@@ -21,6 +22,7 @@ contract Tribunal is BlockNumberish {
     using FixedPointMathLib for uint256;
     using SafeTransferLib for address;
     using EfficiencyLib for bool;
+    using DecayParameterLib for uint256[];
 
     // ======== Events ========
     event Fill(
@@ -142,7 +144,7 @@ contract Tribunal is BlockNumberish {
         uint256 targetBlock
     ) external payable returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount) {
         uint256 blockNumberish = _getBlockNumberish();
-        if (blockNumberish != targetBlock) {
+        if ((blockNumberish != targetBlock).and(mandate.decayCurve.length == 0)) {
             revert InvalidTargetBlock(blockNumberish, targetBlock);
         }
 
@@ -319,6 +321,10 @@ contract Tribunal is BlockNumberish {
         // Ensure that the mandate has not expired.
         mandate.expires.later();
 
+        // Examine the decay curve.
+        (uint256 currentFillIncrease, uint256 currentClaimDecrease) =
+            mandate.decayCurve.getCalculatedValues(_getBlockNumberish());
+
         // Derive mandate hash.
         mandateHash = deriveMandateHash(mandate);
 
@@ -331,8 +337,8 @@ contract Tribunal is BlockNumberish {
 
         // Derive fill and claim amounts.
         (fillAmount, claimAmount) = deriveAmounts(
-            compact.amount,
-            mandate.minimumAmount,
+            compact.amount - currentClaimDecrease,
+            mandate.minimumAmount + currentFillIncrease,
             mandate.baselinePriorityFee,
             mandate.scalingFactor
         );

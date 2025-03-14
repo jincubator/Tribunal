@@ -19,7 +19,7 @@ contract DecayParameterTester {
         return DecayParameterLib.create(blockDuration, fillIncrease, claimDecrease);
     }
 
-    function getCalculatedValues(DecayParameter[] calldata parameters, uint256 blocksPassed)
+    function getCalculatedValues(uint256[] calldata parameters, uint256 blocksPassed)
         external
         pure
         returns (uint256 currentFillIncrease, uint256 currentClaimDecrease)
@@ -42,23 +42,23 @@ contract DecayParameterTester {
  */
 contract DecayParameterLibTest is Test {
     DecayParameterTester public tester;
-    DecayParameter[] public parameters;
-    DecayParameter[] public multiZeroParameters;
+    uint256[] public parameters;
+    uint256[] public multiZeroParameters;
 
     function setUp() public {
         tester = new DecayParameterTester();
 
         // Set up the test parameters array as described in the example
-        parameters.push(tester.create(5, 10, 20)); // Duration 5, fill 10, claim 20
-        parameters.push(tester.create(5, 5, 10)); // Duration 5, fill 5, claim 10
-        parameters.push(tester.create(0, 0, 5)); // Duration 0, fill 0, claim 5 (instant jump)
-        parameters.push(tester.create(5, 10, 10)); // Duration 5, fill 10, claim 10
+        parameters.push(DecayParameter.unwrap(tester.create(5, 10, 20))); // Duration 5, fill 10, claim 20
+        parameters.push(DecayParameter.unwrap(tester.create(5, 5, 10))); // Duration 5, fill 5, claim 10
+        parameters.push(DecayParameter.unwrap(tester.create(0, 0, 5))); // Duration 0, fill 0, claim 5 (instant jump)
+        parameters.push(DecayParameter.unwrap(tester.create(5, 10, 10))); // Duration 5, fill 10, claim 10
 
         // Set up test parameters with multiple zero-duration segments
-        multiZeroParameters.push(tester.create(5, 10, 20)); // Duration 5, fill 10, claim 20
-        multiZeroParameters.push(tester.create(0, 15, 15)); // Duration 0, fill 15, claim 15 (instant jump 1)
-        multiZeroParameters.push(tester.create(0, 0, 0)); // Duration 0, fill 0, claim 0 (instant jump 2)
-        multiZeroParameters.push(tester.create(5, 20, 20)); // Duration 5, fill 20, claim 20
+        multiZeroParameters.push(DecayParameter.unwrap(tester.create(5, 10, 20))); // Duration 5, fill 10, claim 20
+        multiZeroParameters.push(DecayParameter.unwrap(tester.create(0, 15, 15))); // Duration 0, fill 15, claim 15 (instant jump 1)
+        multiZeroParameters.push(DecayParameter.unwrap(tester.create(0, 0, 0))); // Duration 0, fill 0, claim 0 (instant jump 2)
+        multiZeroParameters.push(DecayParameter.unwrap(tester.create(5, 20, 20))); // Duration 5, fill 20, claim 20
     }
 
     function testGetCalculatedValues_AtStart() public view {
@@ -132,7 +132,7 @@ contract DecayParameterLibTest is Test {
 
     function testGetCalculatedValues_EmptyParameters() public view {
         // Test with empty parameters array
-        DecayParameter[] memory emptyParams = new DecayParameter[](0);
+        uint256[] memory emptyParams = new uint256[](0);
         (uint256 fillIncrease, uint256 claimDecrease) = tester.getCalculatedValues(emptyParams, 0);
         assertEq(fillIncrease, 0, "Fill increase should be 0 with empty parameters");
         assertEq(claimDecrease, 0, "Claim decrease should be 0 with empty parameters");
