@@ -305,6 +305,7 @@ contract Tribunal is BlockNumberish {
      * @param allocatorSignature The signature of the allocator.
      * @param mandate The fill conditions and amount derivation parameters.
      * @param claimant The recipient of claimed tokens on the claim chain.
+     * @param targetBlock The block number to target for the fill.
      * @param maximumBlocksAfterTarget Blocks after target that are still fillable.
      * @return mandateHash The derived mandate hash.
      * @return fillAmount The amount of tokens to be filled.
@@ -480,6 +481,7 @@ contract Tribunal is BlockNumberish {
      * @param claimant The recipient of claimed tokens on claim chain.
      * @param claimAmount The amount to claim.
      * @param targetBlock The targeted fill block, or 0 for no target block.
+     * @param maximumBlocksAfterTarget Blocks after target that are still fillable.
      */
     function _processDirective(
         uint256 chainId,
