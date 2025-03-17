@@ -386,7 +386,8 @@ contract Tribunal is BlockNumberish {
             mandateHash,
             claimant,
             claimAmount,
-            targetBlock
+            targetBlock,
+            maximumBlocksAfterTarget
         );
 
         // Return any unused native tokens to the caller.
@@ -443,7 +444,8 @@ contract Tribunal is BlockNumberish {
             mandateHash,
             claimant,
             claimAmount,
-            _getBlockNumberish()
+            _getBlockNumberish(),
+            255
         );
     }
 
@@ -487,7 +489,8 @@ contract Tribunal is BlockNumberish {
         bytes32 mandateHash,
         address claimant,
         uint256 claimAmount,
-        uint256 targetBlock
+        uint256 targetBlock,
+        uint256 maximumBlocksAfterTarget
     ) internal virtual {
         // NOTE: Override & implement directive processing.
     }
@@ -503,6 +506,7 @@ contract Tribunal is BlockNumberish {
      * @param claimAmount The amount to claim.
      * @return dispensation The quoted dispensation amount.
      * @param targetBlock The targeted fill block, or 0 for no target block.
+     * @param maximumBlocksAfterTarget Blocks after target that are still fillable.
      */
     function _quoteDirective(
         uint256 chainId,
@@ -512,7 +516,8 @@ contract Tribunal is BlockNumberish {
         bytes32 mandateHash,
         address claimant,
         uint256 claimAmount,
-        uint256 targetBlock
+        uint256 targetBlock,
+        uint256 maximumBlocksAfterTarget
     ) internal view virtual returns (uint256 dispensation) {
         chainId;
         compact;
@@ -522,6 +527,7 @@ contract Tribunal is BlockNumberish {
         claimant;
         claimAmount;
         targetBlock;
+        maximumBlocksAfterTarget;
 
         // NOTE: Override & implement quote logic.
         return msg.sender.balance / 1000;
