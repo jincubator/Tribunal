@@ -22,6 +22,7 @@ contract Tribunal is BlockNumberish {
     using FixedPointMathLib for uint256;
     using SafeTransferLib for address;
     using EfficiencyLib for bool;
+    using EfficiencyLib for uint256;
     using DecayParameterLib for uint256[];
 
     // ======== Events ========
@@ -37,6 +38,7 @@ contract Tribunal is BlockNumberish {
     // ======== Custom Errors ========
     error InvalidGasPrice();
     error AlreadyClaimed();
+    error InvalidTargetBlockDesignation();
     error InvalidTargetBlock(uint256 blockNumber, uint256 targetBlockNumber);
 
     // ======== Type Declarations ========
@@ -123,6 +125,7 @@ contract Tribunal is BlockNumberish {
             claim.allocatorSignature,
             mandate,
             claimant,
+            uint256(0),
             uint256(0)
         );
     }
@@ -133,6 +136,7 @@ contract Tribunal is BlockNumberish {
      * @param mandate The fill conditions and amount derivation parameters.
      * @param claimant The recipient of claimed tokens on the claim chain.
      * @param targetBlock The block number to target for the fill.
+     * @param maximumBlocksAfterTarget Blocks after target that are still fillable.
      * @return mandateHash The derived mandate hash.
      * @return fillAmount The amount of tokens to be filled.
      * @return claimAmount The amount of tokens to be claimed.
@@ -141,13 +145,9 @@ contract Tribunal is BlockNumberish {
         Claim calldata claim,
         Mandate calldata mandate,
         address claimant,
-        uint256 targetBlock
+        uint256 targetBlock,
+        uint256 maximumBlocksAfterTarget
     ) external payable returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount) {
-        uint256 blockNumberish = _getBlockNumberish();
-        if ((blockNumberish != targetBlock).and(mandate.decayCurve.length == 0)) {
-            revert InvalidTargetBlock(blockNumberish, targetBlock);
-        }
-
         return _fill(
             claim.chainId,
             claim.compact,
@@ -155,7 +155,8 @@ contract Tribunal is BlockNumberish {
             claim.allocatorSignature,
             mandate,
             claimant,
-            targetBlock
+            targetBlock,
+            maximumBlocksAfterTarget
         );
     }
 
@@ -304,7 +305,7 @@ contract Tribunal is BlockNumberish {
      * @param allocatorSignature The signature of the allocator.
      * @param mandate The fill conditions and amount derivation parameters.
      * @param claimant The recipient of claimed tokens on the claim chain.
-     * @param targetBlock The targeted fill block, or 0 for no target block.
+     * @param maximumBlocksAfterTarget Blocks after target that are still fillable.
      * @return mandateHash The derived mandate hash.
      * @return fillAmount The amount of tokens to be filled.
      * @return claimAmount The amount of tokens to be claimed.
@@ -316,14 +317,34 @@ contract Tribunal is BlockNumberish {
         bytes calldata allocatorSignature,
         Mandate calldata mandate,
         address claimant,
-        uint256 targetBlock
+        uint256 targetBlock,
+        uint256 maximumBlocksAfterTarget
     ) internal returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount) {
         // Ensure that the mandate has not expired.
         mandate.expires.later();
 
-        // Examine the decay curve.
-        (uint256 currentFillIncrease, uint256 currentClaimDecrease) =
-            mandate.decayCurve.getCalculatedValues(_getBlockNumberish());
+        uint256 errorBuffer;
+        uint256 currentFillIncrease;
+        uint256 currentClaimDecrease;
+        if (targetBlock != 0) {
+            // Derive the total blocks passed since the target block.
+            uint256 blocksPassed = _getBlockNumberish() - targetBlock;
+
+            // Require that total blocks passed does not exceed maximum.
+            errorBuffer |= (blocksPassed > maximumBlocksAfterTarget).asUint256();
+
+            // Examine decay curve and derive fill & claim modifications.
+            (currentFillIncrease, currentClaimDecrease) =
+                mandate.decayCurve.getCalculatedValues(blocksPassed);
+        } else {
+            // Require that no decay curve has been supplied.
+            errorBuffer |= (mandate.decayCurve.length != 0).asUint256();
+        }
+
+        // Require that target block & decay curve were correctly designated.
+        if (errorBuffer.asBool()) {
+            revert InvalidTargetBlockDesignation();
+        }
 
         // Derive mandate hash.
         mandateHash = deriveMandateHash(mandate);
