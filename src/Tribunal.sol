@@ -164,6 +164,7 @@ contract Tribunal is BlockNumberish {
 
     function cancel(Claim calldata claim, Mandate calldata mandate)
         external
+        payable
         returns (bytes32 claimHash)
     {
         return _cancel(
