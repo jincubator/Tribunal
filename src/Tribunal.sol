@@ -42,6 +42,7 @@ contract Tribunal is BlockNumberish {
     error InvalidTargetBlockDesignation();
     error InvalidTargetBlock(uint256 blockNumber, uint256 targetBlockNumber);
     error NotSponsor();
+    error ReentrancyGuard();
 
     // ======== Type Declarations ========
 
@@ -76,6 +77,10 @@ contract Tribunal is BlockNumberish {
 
     // ======== Constants ========
 
+    /// @notice keccak256("_REENTRANCY_GUARD_SLOT")
+    bytes32 private constant _REENTRANCY_GUARD_SLOT =
+        0x929eee149b4bd21268e1321c4622803b452e74fd69be78111fba0332fa0fd4c0;
+
     /// @notice Base scaling factor (1e18).
     uint256 public constant BASE_SCALING_FACTOR = 1e18;
 
@@ -91,6 +96,23 @@ contract Tribunal is BlockNumberish {
 
     /// @notice Mapping of claim hash to whether it has been used.
     mapping(bytes32 => bool) private _dispositions;
+
+    // ======== Modifiers ========
+
+    modifier nonReentrant() {
+        assembly ("memory-safe") {
+            if tload(_REENTRANCY_GUARD_SLOT) {
+                // revert ReentrancyGuard();
+                mstore(0, 0x8beb9d16)
+                revert(0x1c, 0x04)
+            }
+            tstore(_REENTRANCY_GUARD_SLOT, 1)
+        }
+        _;
+        assembly ("memory-safe") {
+            tstore(_REENTRANCY_GUARD_SLOT, 0)
+        }
+    }
 
     // ======== Constructor ========
 
@@ -118,6 +140,7 @@ contract Tribunal is BlockNumberish {
     function fill(Claim calldata claim, Mandate calldata mandate, address claimant)
         external
         payable
+        nonReentrant
         returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount)
     {
         return _fill(
@@ -149,7 +172,12 @@ contract Tribunal is BlockNumberish {
         address claimant,
         uint256 targetBlock,
         uint256 maximumBlocksAfterTarget
-    ) external payable returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount) {
+    )
+        external
+        payable
+        nonReentrant
+        returns (bytes32 mandateHash, uint256 fillAmount, uint256 claimAmount)
+    {
         return _fill(
             claim.chainId,
             claim.compact,
@@ -165,6 +193,7 @@ contract Tribunal is BlockNumberish {
     function cancel(Claim calldata claim, Mandate calldata mandate)
         external
         payable
+        nonReentrant
         returns (bytes32 claimHash)
     {
         return _cancel(
@@ -179,6 +208,7 @@ contract Tribunal is BlockNumberish {
 
     function cancelChainExclusive(Compact calldata compact, Mandate calldata mandate)
         external
+        nonReentrant
         returns (bytes32 claimHash)
     {
         return _cancel(
