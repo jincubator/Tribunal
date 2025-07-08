@@ -94,8 +94,8 @@ contract Tribunal is BlockNumberish {
 
     // ======== Storage ========
 
-    /// @notice Mapping of claim hash to whether it has been used.
-    mapping(bytes32 => bool) private _dispositions;
+    /// @notice Mapping of used claim hashes to claimants.
+    mapping(bytes32 => address) private _dispositions;
 
     // ======== Modifiers ========
 
@@ -264,9 +264,9 @@ contract Tribunal is BlockNumberish {
     /**
      * @notice Check if a claim has been filled.
      * @param claimHash The hash of the claim to check.
-     * @return Whether the claim has been filled.
+     * @return The claimant account provided by the filler if the claim has been filled, or the sponsor if it is cancelled.
      */
-    function filled(bytes32 claimHash) external view returns (bool) {
+    function filled(bytes32 claimHash) external view returns (address) {
         return _dispositions[claimHash];
     }
 
@@ -416,10 +416,10 @@ contract Tribunal is BlockNumberish {
 
         // Derive and check claim hash.
         bytes32 claimHash = deriveClaimHash(compact, mandateHash);
-        if (_dispositions[claimHash]) {
+        if (_dispositions[claimHash] != address(0)) {
             revert AlreadyClaimed();
         }
-        _dispositions[claimHash] = true;
+        _dispositions[claimHash] = claimant;
 
         // Derive fill and claim amounts.
         (fillAmount, claimAmount) = deriveAmounts(
@@ -483,10 +483,10 @@ contract Tribunal is BlockNumberish {
 
         // Derive and check claim hash.
         claimHash = deriveClaimHash(compact, mandateHash);
-        if (_dispositions[claimHash]) {
+        if (_dispositions[claimHash] != address(0)) {
             revert AlreadyClaimed();
         }
-        _dispositions[claimHash] = true;
+        _dispositions[claimHash] = msg.sender;
 
         // Emit the fill event even when cancelled.
         emit Fill(
@@ -546,7 +546,7 @@ contract Tribunal is BlockNumberish {
 
         // Derive and check claim hash
         bytes32 claimHash = deriveClaimHash(compact, mandateHash);
-        if (_dispositions[claimHash]) {
+        if (_dispositions[claimHash] != address(0)) {
             revert AlreadyClaimed();
         }
 
