@@ -254,13 +254,13 @@ contract TribunalTest is Test {
 
         bytes32 claimHash =
             tribunal.deriveClaimHash(claim.compact, tribunal.deriveMandateHash(mandate));
-        assertFalse(tribunal.filled(claimHash));
+        assertEq(tribunal.filled(claimHash), address(0));
 
         vm.expectEmit(true, true, false, true, address(tribunal));
         emit Tribunal.Fill(sponsor, address(this), claimHash, 1 ether, 1 ether, 0);
 
         tribunal.fill(claim, mandate, address(this));
-        assertTrue(tribunal.filled(claimHash));
+        assertEq(tribunal.filled(claimHash), address(this));
     }
 
     /**
