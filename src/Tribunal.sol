@@ -407,7 +407,7 @@ contract Tribunal is BlockNumberish {
         }
 
         // Require that target block & decay curve were correctly designated.
-        if (errorBuffer.asBool()) {
+        if (errorBuffer != 0) {
             revert InvalidTargetBlockDesignation();
         }
 
