@@ -194,7 +194,7 @@ contract TribunalTest is Test {
         Tribunal.Mandate memory mandate = Tribunal.Mandate({
             recipient: address(0xCAFE),
             expires: 1703116800, // 2023-12-21 00:00:00 UTC
-            token: address(0xDEAD),
+            token: address(token),
             minimumAmount: 1 ether,
             baselinePriorityFee: 100 wei,
             scalingFactor: 1e18,
@@ -216,6 +216,9 @@ contract TribunalTest is Test {
             allocatorSignature: new bytes(0)
         });
 
+        // Approve tokens for settlement
+        token.approve(address(tribunal), type(uint256).max);
+
         tribunal.fill(claim, mandate, address(this));
 
         vm.expectRevert(abi.encodeWithSignature("AlreadyClaimed()"));
@@ -230,7 +233,7 @@ contract TribunalTest is Test {
         Tribunal.Mandate memory mandate = Tribunal.Mandate({
             recipient: address(0xCAFE),
             expires: 1703116800, // 2023-12-21 00:00:00 UTC
-            token: address(0xDEAD),
+            token: address(token),
             minimumAmount: 1 ether,
             baselinePriorityFee: 100 wei,
             scalingFactor: 1e18,
@@ -255,6 +258,9 @@ contract TribunalTest is Test {
         bytes32 claimHash =
             tribunal.deriveClaimHash(claim.compact, tribunal.deriveMandateHash(mandate));
         assertEq(tribunal.filled(claimHash), address(0));
+
+        // Approve tokens for settlement
+        token.approve(address(tribunal), type(uint256).max);
 
         vm.expectEmit(true, true, false, true, address(tribunal));
         emit Tribunal.Fill(sponsor, address(this), claimHash, 1 ether, 1 ether, 0);
